@@ -1,1 +1,7 @@
 project_id = "ffhizsrrsqolhjasovyd"
+
+[functions.openai-webhook]
+verify_jwt = false
+
+[functions.generate-documents]
+verify_jwt = false
