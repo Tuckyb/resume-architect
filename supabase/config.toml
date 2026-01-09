@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.openai-webhook]
 verify_jwt = false
+
+[functions.coverletter-webhook]
+verify_jwt = false
