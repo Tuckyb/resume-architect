@@ -178,13 +178,16 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
 
   const cleanDescription = (desc: string): string => {
     if (!desc) return "";
-    // Remove HTML tags and clean up
-    return desc
-      .replace(/<[^>]*>/g, " ")
-      .replace(/&[^;]+;/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 2000); // Limit length
+    // Keep the raw description - we'll render it as HTML
+    return desc.trim().slice(0, 2000); // Limit length
+  };
+
+  // Convert HTML entities and strip tags for plain text display
+  const getPlainText = (html: string): string => {
+    if (!html) return "";
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+    return tempDiv.textContent || tempDiv.innerText || "";
   };
 
   const toggleJobSelection = (jobId: string) => {
@@ -368,12 +371,12 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
             </div>
           </div>
 
-          <ScrollArea className="h-[300px] border rounded-lg">
-            <div className="p-2 space-y-2">
+          <ScrollArea className="h-[500px] border rounded-lg">
+            <div className="p-3 space-y-3">
               {jobs.map((job) => (
                 <div
                   key={job.id}
-                  className={`p-3 rounded-lg border transition-colors ${
+                  className={`p-4 rounded-lg border transition-colors ${
                     job.selected
                       ? "bg-primary/5 border-primary/30"
                       : "bg-muted/30 border-transparent"
@@ -387,7 +390,7 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h4 className="font-medium truncate">{job.position}</h4>
+                        <h4 className="font-semibold text-base">{getPlainText(job.position)}</h4>
                         {job.workType && (
                           <span className="text-xs px-2 py-0.5 bg-muted rounded-full">
                             {job.workType}
@@ -395,8 +398,8 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                        <Building2 className="h-3 w-3" />
-                        <span className="truncate">{job.companyName}</span>
+                        <Building2 className="h-4 w-4" />
+                        <span>{getPlainText(job.companyName)}</span>
                         {job.companyUrl && (
                           <a
                             href={job.companyUrl}
@@ -404,20 +407,27 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
                             rel="noopener noreferrer"
                             className="text-primary hover:underline"
                           >
-                            <ExternalLink className="h-3 w-3" />
+                            <ExternalLink className="h-4 w-4" />
                           </a>
                         )}
                       </div>
                       {job.location && (
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          <span>{job.location}</span>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                          <MapPin className="h-4 w-4" />
+                          <span>{getPlainText(job.location)}</span>
                         </div>
                       )}
                       {job.postedAt && (
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground mt-2">
                           Posted: {job.postedAt}
                         </p>
+                      )}
+                      {job.jobDescription && (
+                        <div className="mt-3 p-3 bg-muted/50 rounded-md">
+                          <p className="text-sm text-muted-foreground line-clamp-4">
+                            {getPlainText(job.jobDescription)}
+                          </p>
+                        </div>
                       )}
                     </div>
                     <Button
