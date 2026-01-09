@@ -278,16 +278,30 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
         </label>
       </div>
 
-      {/* Manual Add Toggle */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setShowManualAdd(!showManualAdd)}
-        className="mb-4"
-      >
-        <Plus className="h-4 w-4 mr-2" />
-        Add Job Manually
-      </Button>
+      {/* Action Buttons */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowManualAdd(!showManualAdd)}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Job Manually
+        </Button>
+        {jobs.length > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              onJobsChange([]);
+              toast({ title: "Jobs Cleared", description: "All jobs have been removed." });
+            }}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear All Jobs
+          </Button>
+        )}
+      </div>
 
       {/* Manual Add Form */}
       {showManualAdd && (
