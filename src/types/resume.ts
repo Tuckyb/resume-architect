@@ -23,11 +23,32 @@ export interface Education {
   achievements?: string[];
 }
 
+export interface Skill {
+  category: string;
+  items: string[];
+}
+
 export interface JobTarget {
+  id: string;
   companyName: string;
+  companyUrl?: string;
   position: string;
   jobDescription: string;
-  companyValues?: string;
+  location?: string;
+  workType?: string;
+  seniority?: string;
+  postedAt?: string;
+  selected: boolean;
+}
+
+export interface ParsedResumeData {
+  rawText: string;
+  personalInfo?: Partial<PersonalInfo>;
+  workExperience?: WorkExperience[];
+  education?: Education[];
+  skills?: Skill[];
+  certifications?: string[];
+  achievements?: string[];
 }
 
 export interface ResumeData {
@@ -50,4 +71,5 @@ export interface GeneratedDocument {
   type: 'resume' | 'cover-letter';
   rawContent: string;
   htmlContent: string;
+  jobId: string;
 }

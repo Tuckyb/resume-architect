@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -9,65 +8,40 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   ApplicationData,
   GeneratedDocument,
-  ResumeData,
   JobTarget,
+  ParsedResumeData,
 } from "@/types/resume";
-import { PersonalInfoForm } from "./PersonalInfoForm";
-import { WorkExperienceForm } from "./WorkExperienceForm";
-import { EducationForm } from "./EducationForm";
-import { SkillsForm } from "./SkillsForm";
-import { JobTargetForm } from "./JobTargetForm";
+import { PdfUploader } from "./PdfUploader";
+import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
-import { Sparkles } from "lucide-react";
-
-const initialResumeData: ResumeData = {
-  personalInfo: {
-    fullName: "",
-    address: "",
-    phone: "",
-    email: "",
-    linkedIn: "",
-    portfolio: "",
-  },
-  professionalSummary: "",
-  workExperience: [],
-  education: [],
-  skills: [],
-  certifications: [],
-  achievements: [],
-};
-
-const initialJobTarget: JobTarget = {
-  companyName: "",
-  position: "",
-  jobDescription: "",
-  companyValues: "",
-};
+import { Sparkles, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ResumeBuilder() {
   const { toast } = useToast();
-  const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData);
-  const [jobTarget, setJobTarget] = useState<JobTarget>(initialJobTarget);
+  const [parsedResume, setParsedResume] = useState<ParsedResumeData | null>(null);
+  const [jobs, setJobs] = useState<JobTarget[]>([]);
   const [documentType, setDocumentType] = useState<"resume" | "cover-letter" | "both">("both");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
-  const [activeTab, setActiveTab] = useState("personal");
+  const [currentJobIndex, setCurrentJobIndex] = useState(0);
+
+  const selectedJobs = jobs.filter((j) => j.selected);
 
   const handleGenerate = async () => {
-    // Validation
-    if (!resumeData.personalInfo.fullName || !resumeData.personalInfo.email) {
+    if (!parsedResume?.rawText) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in at least your name and email.",
+        title: "Missing Resume",
+        description: "Please upload your resume/CV PDF first.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!jobTarget.companyName || !jobTarget.position) {
+    if (selectedJobs.length === 0) {
       toast({
-        title: "Missing Job Details",
-        description: "Please provide the company name and position.",
+        title: "No Jobs Selected",
+        description: "Please select at least one job to apply for.",
         variant: "destructive",
       });
       return;
@@ -75,27 +49,42 @@ export function ResumeBuilder() {
 
     setIsGenerating(true);
     setGeneratedDocs([]);
+    setCurrentJobIndex(0);
+
+    const allDocs: GeneratedDocument[] = [];
 
     try {
-      const applicationData: ApplicationData = {
-        resumeData,
-        jobTarget,
-        documentType,
-      };
+      for (let i = 0; i < selectedJobs.length; i++) {
+        setCurrentJobIndex(i);
+        const job = selectedJobs[i];
 
-      const { data, error } = await supabase.functions.invoke("generate-documents", {
-        body: applicationData,
-      });
-
-      if (error) throw error;
-
-      if (data.documents) {
-        setGeneratedDocs(data.documents);
-        toast({
-          title: "Success!",
-          description: "Your documents have been generated.",
+        const { data, error } = await supabase.functions.invoke("generate-documents", {
+          body: {
+            parsedResumeData: parsedResume,
+            jobTarget: job,
+            documentType,
+          },
         });
+
+        if (error) {
+          console.error(`Error generating for ${job.companyName}:`, error);
+          continue;
+        }
+
+        if (data.documents) {
+          const docsWithJobId = data.documents.map((doc: GeneratedDocument) => ({
+            ...doc,
+            jobId: job.id,
+          }));
+          allDocs.push(...docsWithJobId);
+          setGeneratedDocs([...allDocs]);
+        }
       }
+
+      toast({
+        title: "Generation Complete!",
+        description: `Generated documents for ${allDocs.length > 0 ? selectedJobs.length : 0} job(s).`,
+      });
     } catch (error) {
       console.error("Generation error:", error);
       toast({
@@ -112,82 +101,24 @@ export function ResumeBuilder() {
     <div className="container mx-auto py-8 px-4">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-foreground mb-2">
-          Resume & Cover Letter Builder
+          AI Resume & Cover Letter Generator
         </h1>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          Enter your details below and let AI create professional, tailored documents
-          for your job application.
+          Upload your resume PDF and job listings CSV. Select which jobs to apply for,
+          and let AI create tailored documents for each application.
         </p>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        {/* Input Form */}
+        {/* Left Column - Inputs */}
         <div className="space-y-6">
-          <Card className="p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-5 mb-6">
-                <TabsTrigger value="personal">Personal</TabsTrigger>
-                <TabsTrigger value="experience">Experience</TabsTrigger>
-                <TabsTrigger value="education">Education</TabsTrigger>
-                <TabsTrigger value="skills">Skills</TabsTrigger>
-                <TabsTrigger value="job">Target Job</TabsTrigger>
-              </TabsList>
+          {/* PDF Upload */}
+          <PdfUploader onParsed={setParsedResume} parsedData={parsedResume} />
 
-              <TabsContent value="personal">
-                <PersonalInfoForm
-                  data={resumeData.personalInfo}
-                  onChange={(personalInfo) =>
-                    setResumeData({ ...resumeData, personalInfo })
-                  }
-                />
-              </TabsContent>
+          {/* Job List Upload */}
+          <JobListUploader jobs={jobs} onJobsChange={setJobs} />
 
-              <TabsContent value="experience">
-                <WorkExperienceForm
-                  data={resumeData.workExperience}
-                  onChange={(workExperience) =>
-                    setResumeData({ ...resumeData, workExperience })
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="education">
-                <EducationForm
-                  data={resumeData.education}
-                  onChange={(education) =>
-                    setResumeData({ ...resumeData, education })
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="skills">
-                <SkillsForm
-                  skills={resumeData.skills}
-                  certifications={resumeData.certifications}
-                  achievements={resumeData.achievements}
-                  professionalSummary={resumeData.professionalSummary}
-                  onSkillsChange={(skills) =>
-                    setResumeData({ ...resumeData, skills })
-                  }
-                  onCertificationsChange={(certifications) =>
-                    setResumeData({ ...resumeData, certifications })
-                  }
-                  onAchievementsChange={(achievements) =>
-                    setResumeData({ ...resumeData, achievements })
-                  }
-                  onSummaryChange={(professionalSummary) =>
-                    setResumeData({ ...resumeData, professionalSummary })
-                  }
-                />
-              </TabsContent>
-
-              <TabsContent value="job">
-                <JobTargetForm data={jobTarget} onChange={setJobTarget} />
-              </TabsContent>
-            </Tabs>
-          </Card>
-
-          {/* Document Type Selection */}
+          {/* Document Type & Generate */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4">Document Type</h3>
             <RadioGroup
@@ -195,7 +126,7 @@ export function ResumeBuilder() {
               onValueChange={(value) =>
                 setDocumentType(value as "resume" | "cover-letter" | "both")
               }
-              className="flex flex-wrap gap-4"
+              className="flex flex-wrap gap-4 mb-6"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="resume" id="resume" />
@@ -211,22 +142,47 @@ export function ResumeBuilder() {
               </div>
             </RadioGroup>
 
+            {/* Validation Alerts */}
+            {!parsedResume?.rawText && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Please upload your resume PDF to continue.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {parsedResume?.rawText && selectedJobs.length === 0 && (
+              <Alert className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Select at least one job from the list above.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Button
               onClick={handleGenerate}
-              disabled={isGenerating}
-              className="w-full mt-6"
+              disabled={isGenerating || !parsedResume?.rawText || selectedJobs.length === 0}
+              className="w-full"
               size="lg"
             >
               <Sparkles className="mr-2 h-5 w-5" />
-              {isGenerating ? "Generating..." : "Generate Documents"}
+              {isGenerating
+                ? `Generating (${currentJobIndex + 1}/${selectedJobs.length})...`
+                : `Generate for ${selectedJobs.length} Job${selectedJobs.length !== 1 ? "s" : ""}`}
             </Button>
           </Card>
         </div>
 
-        {/* Preview Panel */}
+        {/* Right Column - Preview */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">Preview</h2>
-          <DocumentPreview documents={generatedDocs} isLoading={isGenerating} />
+          <h2 className="text-xl font-semibold mb-4">Generated Documents</h2>
+          <DocumentPreview 
+            documents={generatedDocs} 
+            isLoading={isGenerating} 
+            jobs={jobs}
+          />
         </div>
       </div>
     </div>

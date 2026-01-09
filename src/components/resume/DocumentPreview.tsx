@@ -1,47 +1,49 @@
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GeneratedDocument } from "@/types/resume";
-import { Download, FileText } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Download, FileText, Loader2, Printer } from "lucide-react";
+import { GeneratedDocument, JobTarget } from "@/types/resume";
 
-interface Props {
+interface DocumentPreviewProps {
   documents: GeneratedDocument[];
   isLoading: boolean;
+  jobs?: JobTarget[];
 }
 
-export function DocumentPreview({ documents, isLoading }: Props) {
-  const handleDownloadHTML = (doc: GeneratedDocument) => {
+export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPreviewProps) {
+  const downloadHTML = (doc: GeneratedDocument, job?: JobTarget) => {
     const blob = new Blob([doc.htmlContent], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
+    const fileName = job ? `${doc.type}_${job.companyName.replace(/\s+/g, "_")}.html` : `${doc.type}.html`;
     a.href = url;
-    a.download = `${doc.type === "resume" ? "Resume" : "CoverLetter"}.html`;
-    document.body.appendChild(a);
+    a.download = fileName;
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const handlePrintPDF = (doc: GeneratedDocument) => {
+  const printDocument = (doc: GeneratedDocument) => {
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(doc.htmlContent);
       printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 500);
+      printWindow.print();
     }
   };
+
+  const groupedDocs = documents.reduce((acc, doc) => {
+    const jobId = doc.jobId || "unknown";
+    if (!acc[jobId]) acc[jobId] = [];
+    acc[jobId].push(doc);
+    return acc;
+  }, {} as Record<string, GeneratedDocument[]>);
 
   if (isLoading) {
     return (
       <Card className="p-8 flex flex-col items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
-        <p className="text-muted-foreground">Generating your documents...</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Step 1: Creating content with GPT...
-        </p>
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Generating documents...</p>
       </Card>
     );
   }
@@ -49,48 +51,57 @@ export function DocumentPreview({ documents, isLoading }: Props) {
   if (documents.length === 0) {
     return (
       <Card className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center">
-        <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No Documents Yet</h3>
-        <p className="text-muted-foreground max-w-md">
-          Fill out your information and click "Generate Documents" to create your
-          resume and cover letter.
-        </p>
+        <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Upload resume, select jobs, and generate.</p>
       </Card>
     );
   }
 
+  const jobIds = Object.keys(groupedDocs);
+
   return (
-    <Tabs defaultValue={documents[0]?.type} className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        {documents.map((doc) => (
-          <TabsTrigger key={doc.type} value={doc.type}>
-            {doc.type === "resume" ? "Resume" : "Cover Letter"}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-
-      {documents.map((doc) => (
-        <TabsContent key={doc.type} value={doc.type} className="mt-4">
-          <div className="flex gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => handleDownloadHTML(doc)}>
-              <Download className="mr-2 h-4 w-4" />
-              Download HTML
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handlePrintPDF(doc)}>
-              <FileText className="mr-2 h-4 w-4" />
-              Print / Save PDF
-            </Button>
-          </div>
-
-          <Card className="p-0 overflow-hidden">
-            <iframe
-              srcDoc={doc.htmlContent}
-              className="w-full min-h-[600px] border-0"
-              title={`${doc.type} preview`}
-            />
-          </Card>
-        </TabsContent>
-      ))}
-    </Tabs>
+    <Card className="p-4">
+      <Tabs defaultValue={jobIds[0]}>
+        <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
+          {jobIds.map((jobId) => (
+            <TabsTrigger key={jobId} value={jobId} className="text-xs">
+              {jobs.find(j => j.id === jobId)?.companyName || "Document"}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {jobIds.map((jobId) => {
+          const jobDocs = groupedDocs[jobId];
+          const job = jobs.find(j => j.id === jobId);
+          return (
+            <TabsContent key={jobId} value={jobId}>
+              <Tabs defaultValue={jobDocs[0]?.type}>
+                <TabsList className="mb-4">
+                  {jobDocs.map((doc) => (
+                    <TabsTrigger key={doc.type} value={doc.type}>
+                      {doc.type === "resume" ? "Resume" : "Cover Letter"}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {jobDocs.map((doc) => (
+                  <TabsContent key={doc.type} value={doc.type}>
+                    <div className="flex gap-2 mb-4">
+                      <Button variant="outline" size="sm" onClick={() => downloadHTML(doc, job)}>
+                        <Download className="h-4 w-4 mr-2" />Download
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => printDocument(doc)}>
+                        <Printer className="h-4 w-4 mr-2" />Print/PDF
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-[500px] border rounded-lg">
+                      <div className="p-4 bg-white" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
+                    </ScrollArea>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </TabsContent>
+          );
+        })}
+      </Tabs>
+    </Card>
   );
 }
