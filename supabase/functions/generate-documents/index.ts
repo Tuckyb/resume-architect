@@ -182,25 +182,306 @@ async function generateWithOpenAI(prompt: string, apiKey: string): Promise<strin
 }
 
 async function formatWithClaude(content: string, docType: string, apiKey: string): Promise<string> {
-  console.log("Calling Claude API for HTML formatting...");
+  console.log("Calling Claude API for HTML formatting with resume-formatter skill...");
 
-  const prompt = `Convert the following ${docType} content into a beautifully styled HTML document.
+  const cssFramework = `
+/* Professional Resume/Cover Letter CSS Framework */
+:root {
+  --primary-color: #1a365d;
+  --secondary-color: #2c5282;
+  --accent-color: #3182ce;
+  --text-color: #2d3748;
+  --text-light: #4a5568;
+  --border-color: #e2e8f0;
+  --bg-light: #f7fafc;
+  --bg-accent: #ebf8ff;
+}
 
-CONTENT:
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 11pt;
+  line-height: 1.5;
+  color: var(--text-color);
+  max-width: 8.5in;
+  margin: 0 auto;
+  padding: 0.5in;
+  background: white;
+}
+
+/* Header Styles */
+.header {
+  text-align: center;
+  border-bottom: 3px solid var(--primary-color);
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.name {
+  font-size: 28pt;
+  font-weight: 700;
+  color: var(--primary-color);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.contact-info {
+  font-size: 10pt;
+  color: var(--text-light);
+}
+
+.contact-info span { margin: 0 8px; }
+
+/* Section Styles */
+.section {
+  margin-bottom: 18px;
+  page-break-inside: avoid;
+}
+
+.section-title {
+  font-size: 13pt;
+  font-weight: 600;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  border-bottom: 2px solid var(--accent-color);
+  padding-bottom: 5px;
+  margin-bottom: 12px;
+}
+
+/* Professional Summary */
+.summary {
+  font-style: italic;
+  color: var(--text-light);
+  padding: 10px 15px;
+  background: var(--bg-light);
+  border-left: 4px solid var(--accent-color);
+}
+
+/* Competencies Table */
+.competencies-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+
+.competencies-table td {
+  width: 50%;
+  padding: 8px 12px;
+  vertical-align: top;
+  border: 1px solid var(--border-color);
+}
+
+.competency-title {
+  font-weight: 600;
+  color: var(--secondary-color);
+  margin-bottom: 4px;
+}
+
+.competency-skills {
+  font-size: 10pt;
+  color: var(--text-light);
+}
+
+/* Job Entry Styles */
+.job-entry {
+  margin-bottom: 15px;
+  page-break-inside: avoid;
+}
+
+.job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+
+.job-title {
+  font-weight: 600;
+  color: var(--secondary-color);
+}
+
+.job-company {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.job-dates {
+  font-size: 10pt;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+.job-description ul {
+  margin-left: 20px;
+  margin-top: 5px;
+}
+
+.job-description li {
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.job-description li::marker {
+  color: var(--accent-color);
+}
+
+/* Education & Certifications */
+.education-entry, .certification-entry {
+  margin-bottom: 10px;
+}
+
+.degree, .cert-name {
+  font-weight: 600;
+  color: var(--secondary-color);
+}
+
+.institution {
+  color: var(--text-color);
+}
+
+.edu-dates {
+  font-size: 10pt;
+  color: var(--text-light);
+  font-style: italic;
+}
+
+/* Achievements */
+.achievements-list {
+  margin-left: 20px;
+}
+
+.achievements-list li {
+  margin-bottom: 6px;
+}
+
+.achievements-list li::marker {
+  color: var(--accent-color);
+}
+
+/* References Table */
+.references-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.references-table td {
+  width: 50%;
+  padding: 10px;
+  vertical-align: top;
+}
+
+.reference-entry {
+  background: var(--bg-light);
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.reference-name {
+  font-weight: 600;
+  color: var(--secondary-color);
+}
+
+.reference-title {
+  font-size: 10pt;
+  color: var(--text-light);
+}
+
+.reference-contact {
+  font-size: 9pt;
+  color: var(--text-light);
+  margin-top: 5px;
+}
+
+/* Cover Letter Specific */
+.letter-header {
+  margin-bottom: 30px;
+}
+
+.sender-info {
+  text-align: right;
+  margin-bottom: 20px;
+}
+
+.date {
+  margin-bottom: 20px;
+}
+
+.recipient-info {
+  margin-bottom: 20px;
+}
+
+.subject-line {
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.letter-body p {
+  margin-bottom: 15px;
+  text-align: justify;
+}
+
+.signature {
+  margin-top: 30px;
+}
+
+.signature-name {
+  font-weight: 600;
+  margin-top: 40px;
+}
+
+/* Print Styles */
+@media print {
+  body { padding: 0; }
+  .section { page-break-inside: avoid; }
+  .job-entry { page-break-inside: avoid; }
+}
+
+@page {
+  size: letter;
+  margin: 0.5in;
+}
+`;
+
+  const resumePrompt = `You are a professional resume formatter using the resume-formatter skill.
+
+Transform the following ${docType} content into a beautifully styled HTML document.
+
+## CSS FRAMEWORK (embed this in the HTML):
+${cssFramework}
+
+## CONTENT TO FORMAT:
 ${content}
 
-REQUIREMENTS:
-1. Create a complete HTML document with embedded CSS
-2. Use a modern, professional design with clean typography
-3. Use a color scheme of navy blue (#1a365d) as primary and light gray (#f7fafc) as background
-4. Include proper spacing, margins, and padding
-5. Make it print-friendly with @media print styles
-6. Use a two-column layout for skills/competencies if applicable
-7. Add subtle visual elements like dividers and section backgrounds
-8. Ensure the document is responsive
-9. Use professional fonts (system fonts that work everywhere)
+## REQUIREMENTS:
 
-Return ONLY the complete HTML code, nothing else. The HTML should be ready to save and open in a browser.`;
+### For Resumes - Use these sections in order:
+1. Header (.header) - name (.name), contact info (.contact-info)
+2. Professional Summary (.section with .summary)
+3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout
+4. Professional Experience - Each job in .job-entry with .job-header (flexbox) and .job-description
+5. Education (.education-entry)
+6. Certifications (.certification-entry)
+7. Key Achievements (.achievements-list)
+
+### For Cover Letters - Use these sections:
+1. Letter header (.letter-header) with .sender-info
+2. Date (.date)
+3. Recipient info (.recipient-info)
+4. Subject line (.subject-line)
+5. Letter body (.letter-body) with paragraphs
+6. Signature (.signature)
+
+### Output Format:
+- Complete HTML document with <!DOCTYPE html>
+- Embed full CSS in <style> tag
+- Use HTML tables for competencies and references (not CSS Grid) for Word compatibility
+- Include @page rules for PDF conversion
+- Include print media queries
+- Mobile responsive design
+
+Return ONLY the complete HTML code, nothing else.`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -211,8 +492,8 @@ Return ONLY the complete HTML code, nothing else. The HTML should be ready to sa
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 4000,
-      messages: [{ role: "user", content: prompt }],
+      max_tokens: 8000,
+      messages: [{ role: "user", content: resumePrompt }],
     }),
   });
 
