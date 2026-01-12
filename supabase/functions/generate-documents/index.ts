@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface Reference {
+  name: string;
+  title: string;
+  contact: string;
+}
+
 interface ParsedResumeData {
   rawText: string;
   personalInfo?: {
@@ -35,6 +41,7 @@ interface ParsedResumeData {
   }>;
   certifications?: string[];
   achievements?: string[];
+  references?: Reference[];
 }
 
 interface JobTarget {
@@ -57,54 +64,73 @@ interface RequestData {
 }
 
 function buildResumePrompt(resume: ParsedResumeData, job: JobTarget): string {
-  const { personalInfo, workExperience, education, skills, certifications, achievements } = resume;
+  const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
   const skillsText = skills?.map(s => `${s.category}: ${s.items.join(", ")}`).join("\n") || "";
+  
+  const referencesText = references?.map(ref => 
+    `- ${ref.name} | ${ref.title} | ${ref.contact}`
+  ).join("\n") || "";
 
-  return `Create a professional resume for the following candidate, tailored for the ${job.position} position at ${job.companyName}.
+  return `Create a professional resume tailored for the ${job.position} position at ${job.companyName}.
 
-CANDIDATE INFORMATION:
-Name: ${personalInfo?.fullName || "Not provided"}
-Email: ${personalInfo?.email || "Not provided"}
-Phone: ${personalInfo?.phone || "Not provided"}
-Address: ${personalInfo?.address || "Not provided"}
-LinkedIn: ${personalInfo?.linkedIn || "Not provided"}
-Portfolio: ${personalInfo?.portfolio || "Not provided"}
+CRITICAL INSTRUCTION: You MUST use the EXACT information provided below. DO NOT use placeholders like [Your Name] or [Your Email]. Use the actual values given.
 
-WORK EXPERIENCE:
+=== CANDIDATE PERSONAL INFORMATION (USE EXACTLY AS PROVIDED) ===
+Full Name: ${personalInfo?.fullName || ""}
+Email: ${personalInfo?.email || ""}
+Phone: ${personalInfo?.phone || ""}
+Address: ${personalInfo?.address || ""}
+LinkedIn URL: ${personalInfo?.linkedIn || ""}
+Portfolio URL: ${personalInfo?.portfolio || ""}
+
+=== WORK EXPERIENCE (USE EXACTLY AS PROVIDED) ===
 ${workExperience?.map(exp => `
-${exp.title} at ${exp.company} (${exp.period})
+**${exp.title}** at **${exp.company}** (${exp.period})
 ${exp.responsibilities.map(r => `• ${r}`).join("\n")}
-`).join("\n") || "Not provided"}
+`).join("\n") || "No work experience provided"}
 
-EDUCATION:
+=== EDUCATION (USE EXACTLY AS PROVIDED) ===
 ${education?.map(edu => `
-${edu.degree} - ${edu.institution} (${edu.period})
+**${edu.degree}** - ${edu.institution} (${edu.period})
 ${edu.achievements?.length ? edu.achievements.map(a => `• ${a}`).join("\n") : ""}
-`).join("\n") || "Not provided"}
+`).join("\n") || "No education provided"}
 
-SKILLS:
-${skillsText || "Not provided"}
+=== SKILLS ===
+${skillsText || "No skills provided"}
 
-CERTIFICATIONS:
-${certifications?.join(", ") || "Not provided"}
+=== CERTIFICATIONS ===
+${certifications?.join(", ") || "No certifications provided"}
 
-KEY ACHIEVEMENTS:
-${achievements?.map(a => `• ${a}`).join("\n") || "Not provided"}
+=== KEY ACHIEVEMENTS ===
+${achievements?.map(a => `• ${a}`).join("\n") || "No achievements provided"}
 
-TARGET JOB:
+=== REFERENCES ===
+${referencesText || "Available upon request"}
+
+=== TARGET JOB ===
 Company: ${job.companyName}
 Position: ${job.position}
 Location: ${job.location || "Not specified"}
 Work Type: ${job.workType || "Not specified"}
 Job Description: ${job.jobDescription}
 
-Please write a complete, ATS-optimized resume that:
-1. Highlights relevant experience for this specific role
-2. Uses strong action verbs and quantifiable achievements
-3. Creates a compelling professional summary tailored to the target position
-4. Organizes skills to emphasize those most relevant to the job
-5. Maintains a professional tone throughout
+=== OUTPUT REQUIREMENTS ===
+1. Start with a HEADER containing the candidate's actual name, address, phone, email, and profile links
+2. Write a compelling PROFESSIONAL SUMMARY tailored to this specific role
+3. Include CORE COMPETENCIES organized in a 2x2 grid format
+4. List all PROFESSIONAL EXPERIENCE with bullet points for responsibilities
+5. Include EDUCATION with achievements
+6. List CERTIFICATIONS
+7. Include KEY ACHIEVEMENTS
+8. Include REFERENCES section with actual names, titles, and contact info
+
+IMPORTANT: 
+- Use the candidate's ACTUAL NAME "${personalInfo?.fullName || ""}" in the header - NOT "[Your Name]"
+- Use the ACTUAL EMAIL "${personalInfo?.email || ""}" - NOT "[Your Email]"
+- Use the ACTUAL PHONE "${personalInfo?.phone || ""}" - NOT "[Your Phone]"
+- Use the ACTUAL ADDRESS "${personalInfo?.address || ""}" - NOT "[Your Address]"
+- LinkedIn and Portfolio should be labeled links, not just URLs
 
 Format the output as clean, structured text with clear section headers.`;
 }
@@ -112,39 +138,66 @@ Format the output as clean, structured text with clear section headers.`;
 function buildCoverLetterPrompt(resume: ParsedResumeData, job: JobTarget): string {
   const { personalInfo, workExperience, achievements } = resume;
 
-  return `Write a compelling cover letter for ${personalInfo?.fullName || "the candidate"} applying for the ${job.position} position at ${job.companyName}.
+  const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 
-CANDIDATE DETAILS:
-Name: ${personalInfo?.fullName || "Not provided"}
-Email: ${personalInfo?.email || "Not provided"}
-Phone: ${personalInfo?.phone || "Not provided"}
-Address: ${personalInfo?.address || "Not provided"}
+  return `Write a compelling cover letter for the ${job.position} position at ${job.companyName}.
 
-KEY EXPERIENCE:
+CRITICAL INSTRUCTION: You MUST use the EXACT candidate information provided below. DO NOT use placeholders like [Your Name] or [Your Email]. Use the actual values given.
+
+=== SENDER INFORMATION (USE EXACTLY AS PROVIDED) ===
+Full Name: ${personalInfo?.fullName || ""}
+Email: ${personalInfo?.email || ""}
+Phone: ${personalInfo?.phone || ""}
+Address: ${personalInfo?.address || ""}
+LinkedIn URL: ${personalInfo?.linkedIn || ""}
+Portfolio URL: ${personalInfo?.portfolio || ""}
+Today's Date: ${today}
+
+=== KEY EXPERIENCE ===
 ${workExperience?.slice(0, 3).map(exp => `
-${exp.title} at ${exp.company}
-${exp.responsibilities.slice(0, 2).map(r => `• ${r}`).join("\n")}
-`).join("\n") || "Not provided"}
+**${exp.title}** at **${exp.company}**
+${exp.responsibilities.slice(0, 3).map(r => `• ${r}`).join("\n")}
+`).join("\n") || "No experience provided"}
 
-KEY ACHIEVEMENTS:
-${achievements?.slice(0, 5).map(a => `• ${a}`).join("\n") || "Not provided"}
+=== KEY ACHIEVEMENTS ===
+${achievements?.slice(0, 5).map(a => `• ${a}`).join("\n") || "No achievements provided"}
 
-TARGET JOB:
+=== TARGET JOB ===
 Company: ${job.companyName}
 Position: ${job.position}
-Location: ${job.location || "Not specified"}
+Location: ${job.location || ""}
 Job Description: ${job.jobDescription}
 
-Write a personalized, engaging cover letter that:
-1. Opens with a compelling hook that demonstrates genuine interest
-2. Connects the candidate's specific achievements to the job requirements
-3. Shows understanding of the company and the role
-4. Demonstrates personality while maintaining professionalism
-5. Ends with a confident call to action
+=== OUTPUT REQUIREMENTS ===
+1. START with sender info block (right-aligned):
+   - ${personalInfo?.fullName || ""}
+   - ${personalInfo?.address || ""}
+   - ${personalInfo?.phone || ""}
+   - ${personalInfo?.email || ""}
+   - LinkedIn Profile | Portfolio (as labeled links)
 
-The letter should be 3-4 paragraphs, approximately 300-400 words. Do NOT use generic phrases like "I am writing to apply for..." - make it unique and memorable.
+2. Date: ${today}
 
-Format: Include proper business letter formatting with date and address headers.`;
+3. Recipient info:
+   - "Dear Hiring Team at ${job.companyName},"
+
+4. Body: 3-4 paragraphs that:
+   - Open with a compelling hook showing genuine interest
+   - Connect specific achievements to job requirements
+   - Show understanding of the company
+   - End with a confident call to action
+
+5. END with:
+   - "Warm regards,"
+   - ${personalInfo?.fullName || ""}
+
+IMPORTANT:
+- Use the candidate's ACTUAL NAME "${personalInfo?.fullName || ""}" - NOT "[Your Name]"
+- Use the ACTUAL EMAIL "${personalInfo?.email || ""}" - NOT "[Your Email]"  
+- Use the ACTUAL PHONE "${personalInfo?.phone || ""}" - NOT "[Your Phone]"
+- Use the ACTUAL ADDRESS "${personalInfo?.address || ""}" - NOT "[Your Address]"
+- Do NOT include "[City, State, Zip]" placeholders
+- Make the letter 300-400 words, unique and memorable`;
 }
 
 async function generateWithOpenAI(prompt: string, apiKey: string): Promise<string> {

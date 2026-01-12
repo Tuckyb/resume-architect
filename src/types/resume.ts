@@ -41,6 +41,12 @@ export interface JobTarget {
   selected: boolean;
 }
 
+export interface Reference {
+  name: string;
+  title: string;
+  contact: string;
+}
+
 export interface ParsedResumeData {
   rawText: string;
   personalInfo?: Partial<PersonalInfo>;
@@ -49,6 +55,7 @@ export interface ParsedResumeData {
   skills?: Skill[];
   certifications?: string[];
   achievements?: string[];
+  references?: Reference[];
 }
 
 export interface ResumeData {
