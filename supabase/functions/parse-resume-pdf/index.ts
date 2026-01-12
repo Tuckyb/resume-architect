@@ -5,6 +5,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface Reference {
+  name: string;
+  title: string;
+  contact: string;
+}
+
 interface ParsedResumeData {
   rawText: string;
   personalInfo?: {
@@ -35,6 +41,7 @@ interface ParsedResumeData {
   }>;
   certifications?: string[];
   achievements?: string[];
+  references?: Reference[];
 }
 
 Deno.serve(async (req) => {
@@ -111,10 +118,22 @@ Return a JSON object with this structure:
     }
   ],
   "certifications": ["cert1", "cert2"],
-  "achievements": ["achievement1", "achievement2"]
+  "achievements": ["achievement1", "achievement2"],
+  "references": [
+    {
+      "name": "Reference Person Name",
+      "title": "Their Job Title or Relationship",
+      "contact": "Phone number or email"
+    }
+  ]
 }
 
-Only include fields you can confidently extract. Return valid JSON only, no markdown.`,
+IMPORTANT: 
+- Extract ALL personal information including full address, phone, email
+- Extract LinkedIn and portfolio URLs if present
+- Extract references with name, title/role, and contact information
+- Only include fields you can confidently extract
+- Return valid JSON only, no markdown`,
           },
           {
             role: "user",
