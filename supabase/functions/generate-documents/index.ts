@@ -61,9 +61,11 @@ interface RequestData {
   parsedResumeData: ParsedResumeData;
   jobTarget: JobTarget;
   documentType: "resume" | "cover-letter" | "both";
+  exampleResumeText?: string | null;
+  exampleCoverLetterText?: string | null;
 }
 
-function buildResumePrompt(resume: ParsedResumeData, job: JobTarget): string {
+function buildResumePrompt(resume: ParsedResumeData, job: JobTarget, exampleText?: string | null): string {
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
   const skillsText = skills?.map(s => `${s.category}: ${s.items.join(", ")}`).join("\n") || "";
@@ -72,10 +74,19 @@ function buildResumePrompt(resume: ParsedResumeData, job: JobTarget): string {
     `- ${ref.name} | ${ref.title} | ${ref.contact}`
   ).join("\n") || "";
 
+  const exampleSection = exampleText ? `
+=== EXAMPLE RESUME FORMAT (FOLLOW THIS STYLE) ===
+Here is an example resume showing the desired formatting and style. Match this style closely:
+
+${exampleText}
+
+=== END OF EXAMPLE ===
+` : "";
+
   return `Create a professional resume tailored for the ${job.position} position at ${job.companyName}.
 
 CRITICAL INSTRUCTION: You MUST use the EXACT information provided below. DO NOT use placeholders like [Your Name] or [Your Email]. Use the actual values given.
-
+${exampleSection}
 === CANDIDATE PERSONAL INFORMATION (USE EXACTLY AS PROVIDED) ===
 Full Name: ${personalInfo?.fullName || ""}
 Email: ${personalInfo?.email || ""}
@@ -135,15 +146,24 @@ IMPORTANT:
 Format the output as clean, structured text with clear section headers.`;
 }
 
-function buildCoverLetterPrompt(resume: ParsedResumeData, job: JobTarget): string {
+function buildCoverLetterPrompt(resume: ParsedResumeData, job: JobTarget, exampleText?: string | null): string {
   const { personalInfo, workExperience, achievements } = resume;
 
   const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 
+  const exampleSection = exampleText ? `
+=== EXAMPLE COVER LETTER FORMAT (FOLLOW THIS STYLE) ===
+Here is an example cover letter showing the desired formatting and style. Match this style closely:
+
+${exampleText}
+
+=== END OF EXAMPLE ===
+` : "";
+
   return `Write a compelling cover letter for the ${job.position} position at ${job.companyName}.
 
 CRITICAL INSTRUCTION: You MUST use the EXACT candidate information provided below. DO NOT use placeholders like [Your Name] or [Your Email]. Use the actual values given.
-
+${exampleSection}
 === SENDER INFORMATION (USE EXACTLY AS PROVIDED) ===
 Full Name: ${personalInfo?.fullName || ""}
 Email: ${personalInfo?.email || ""}
@@ -262,26 +282,16 @@ async function formatWithClaude(content: string, docType: string, apiKey: string
   console.log("Calling Claude API for HTML formatting with resume-formatter skill...");
   console.log("Personal info for formatting:", JSON.stringify(personalInfo));
 
+  // Word-compatible CSS - NO CSS variables, NO flexbox, use inline colors and tables
   const cssFramework = `
-/* Professional Resume/Cover Letter CSS Framework */
-:root {
-  --primary-color: #1a365d;
-  --secondary-color: #2c5282;
-  --accent-color: #3182ce;
-  --text-color: #2d3748;
-  --text-light: #4a5568;
-  --border-color: #e2e8f0;
-  --bg-light: #f7fafc;
-  --bg-accent: #ebf8ff;
-}
-
+/* Word-Compatible Professional Resume/Cover Letter CSS */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 11pt;
   line-height: 1.5;
-  color: var(--text-color);
+  color: #2d3748;
   max-width: 8.5in;
   margin: 0 auto;
   padding: 0.5in;
@@ -291,7 +301,7 @@ body {
 /* Header Styles */
 .header {
   text-align: center;
-  border-bottom: 3px solid var(--primary-color);
+  border-bottom: 3px solid #1a365d;
   padding-bottom: 15px;
   margin-bottom: 20px;
 }
@@ -299,17 +309,26 @@ body {
 .name {
   font-size: 28pt;
   font-weight: 700;
-  color: var(--primary-color);
+  color: #1a365d;
   letter-spacing: 1px;
   margin-bottom: 8px;
 }
 
 .contact-info {
   font-size: 10pt;
-  color: var(--text-light);
+  color: #4a5568;
 }
 
 .contact-info span { margin: 0 8px; }
+
+.contact-info a {
+  color: #3182ce;
+  text-decoration: none;
+}
+
+.contact-info a:hover {
+  text-decoration: underline;
+}
 
 /* Section Styles */
 .section {
@@ -320,10 +339,10 @@ body {
 .section-title {
   font-size: 13pt;
   font-weight: 600;
-  color: var(--primary-color);
+  color: #1a365d;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  border-bottom: 2px solid var(--accent-color);
+  border-bottom: 2px solid #3182ce;
   padding-bottom: 5px;
   margin-bottom: 12px;
 }
@@ -331,13 +350,13 @@ body {
 /* Professional Summary */
 .summary {
   font-style: italic;
-  color: var(--text-light);
+  color: #4a5568;
   padding: 10px 15px;
-  background: var(--bg-light);
-  border-left: 4px solid var(--accent-color);
+  background-color: #f7fafc;
+  border-left: 4px solid #3182ce;
 }
 
-/* Competencies Table */
+/* Competencies Table - Word compatible */
 .competencies-table {
   width: 100%;
   border-collapse: collapse;
@@ -348,46 +367,59 @@ body {
   width: 50%;
   padding: 8px 12px;
   vertical-align: top;
-  border: 1px solid var(--border-color);
+  border: 1px solid #e2e8f0;
+  background-color: #f7fafc;
 }
 
 .competency-title {
   font-weight: 600;
-  color: var(--secondary-color);
+  color: #2c5282;
   margin-bottom: 4px;
 }
 
 .competency-skills {
   font-size: 10pt;
-  color: var(--text-light);
+  color: #4a5568;
 }
 
-/* Job Entry Styles */
+/* Job Entry Styles - Using tables instead of flexbox for Word */
 .job-entry {
   margin-bottom: 15px;
   page-break-inside: avoid;
 }
 
-.job-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+.job-header-table {
+  width: 100%;
+  border-collapse: collapse;
   margin-bottom: 5px;
+}
+
+.job-header-table td {
+  padding: 0;
+  vertical-align: baseline;
+}
+
+.job-header-table td:first-child {
+  text-align: left;
+}
+
+.job-header-table td:last-child {
+  text-align: right;
 }
 
 .job-title {
   font-weight: 600;
-  color: var(--secondary-color);
+  color: #2c5282;
 }
 
 .job-company {
   font-weight: 500;
-  color: var(--text-color);
+  color: #2d3748;
 }
 
 .job-dates {
   font-size: 10pt;
-  color: var(--text-light);
+  color: #4a5568;
   font-style: italic;
 }
 
@@ -398,11 +430,6 @@ body {
 
 .job-description li {
   margin-bottom: 4px;
-  position: relative;
-}
-
-.job-description li::marker {
-  color: var(--accent-color);
 }
 
 /* Education & Certifications */
@@ -412,16 +439,16 @@ body {
 
 .degree, .cert-name {
   font-weight: 600;
-  color: var(--secondary-color);
+  color: #2c5282;
 }
 
 .institution {
-  color: var(--text-color);
+  color: #2d3748;
 }
 
 .edu-dates {
   font-size: 10pt;
-  color: var(--text-light);
+  color: #4a5568;
   font-style: italic;
 }
 
@@ -432,10 +459,6 @@ body {
 
 .achievements-list li {
   margin-bottom: 6px;
-}
-
-.achievements-list li::marker {
-  color: var(--accent-color);
 }
 
 /* References Table */
@@ -451,25 +474,30 @@ body {
 }
 
 .reference-entry {
-  background: var(--bg-light);
+  background-color: #f7fafc;
   padding: 12px;
-  border-radius: 4px;
+  border: 1px solid #e2e8f0;
 }
 
 .reference-name {
   font-weight: 600;
-  color: var(--secondary-color);
+  color: #2c5282;
 }
 
 .reference-title {
   font-size: 10pt;
-  color: var(--text-light);
+  color: #4a5568;
 }
 
 .reference-contact {
   font-size: 9pt;
-  color: var(--text-light);
+  color: #4a5568;
   margin-top: 5px;
+}
+
+.reference-contact a {
+  color: #3182ce;
+  text-decoration: none;
 }
 
 /* Cover Letter Specific */
@@ -480,6 +508,11 @@ body {
 .sender-info {
   text-align: right;
   margin-bottom: 20px;
+}
+
+.sender-info a {
+  color: #3182ce;
+  text-decoration: none;
 }
 
 .date {
@@ -524,13 +557,13 @@ body {
 
   // Build the contact line with proper HTML links
   const linkedInLink = personalInfo?.linkedIn 
-    ? `<a href="${personalInfo.linkedIn.startsWith('http') ? personalInfo.linkedIn : 'https://' + personalInfo.linkedIn}" target="_blank" style="color: var(--accent-color); text-decoration: none;">LinkedIn</a>` 
+    ? `<a href="${personalInfo.linkedIn.startsWith('http') ? personalInfo.linkedIn : 'https://' + personalInfo.linkedIn}" target="_blank" style="color: #3182ce; text-decoration: none;">LinkedIn</a>` 
     : '';
   const portfolioLink = personalInfo?.portfolio 
-    ? `<a href="${personalInfo.portfolio.startsWith('http') ? personalInfo.portfolio : 'https://' + personalInfo.portfolio}" target="_blank" style="color: var(--accent-color); text-decoration: none;">Portfolio</a>` 
+    ? `<a href="${personalInfo.portfolio.startsWith('http') ? personalInfo.portfolio : 'https://' + personalInfo.portfolio}" target="_blank" style="color: #3182ce; text-decoration: none;">Portfolio</a>` 
     : '';
   const emailLink = personalInfo?.email 
-    ? `<a href="mailto:${personalInfo.email}" style="color: var(--accent-color); text-decoration: none;">${personalInfo.email}</a>` 
+    ? `<a href="mailto:${personalInfo.email}" style="color: #3182ce; text-decoration: none;">${personalInfo.email}</a>` 
     : '';
   
   const contactParts = [
@@ -545,7 +578,15 @@ body {
 
   const resumePrompt = `You are a professional resume formatter using the resume-formatter skill.
 
-Transform the following ${docType} content into a beautifully styled HTML document.
+Transform the following ${docType} content into a beautifully styled HTML document that is FULLY COMPATIBLE WITH MICROSOFT WORD.
+
+## CRITICAL - WORD COMPATIBILITY RULES:
+1. DO NOT use CSS variables (var(--something)) - use direct hex colors like #1a365d
+2. DO NOT use flexbox (display: flex) - use HTML tables for layouts
+3. DO NOT use CSS Grid - use HTML tables for grid layouts
+4. Use background-color instead of background for colors
+5. Use simple, inline-friendly CSS properties
+6. All colors must be hex codes, not CSS variables
 
 ## CRITICAL - CANDIDATE PERSONAL INFORMATION (USE THESE EXACT VALUES):
 - Full Name: ${personalInfo?.fullName || ""}
@@ -580,12 +621,12 @@ For the header section, you MUST include this EXACT HTML structure:
 ### For Resumes - Use these sections in order:
 1. Header (.header) - Use the EXACT header HTML shown above with actual name and all contact info
 2. Professional Summary (.section with .summary)
-3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout
-4. Professional Experience - Each job in .job-entry with .job-header (flexbox) and .job-description
+3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout using <tr> and <td>
+4. Professional Experience - Each job uses a table for header layout (.job-header-table with 2 <td> cells) and .job-description for bullets
 5. Education (.education-entry)
 6. Certifications (.certification-entry)
 7. Key Achievements (.achievements-list)
-8. References section if provided
+8. References section using HTML table (.references-table) for 2-column layout
 
 ### For Cover Letters - Use these sections:
 1. Letter header (.letter-header) with .sender-info containing ALL contact details:
@@ -604,10 +645,11 @@ For the header section, you MUST include this EXACT HTML structure:
 ### Output Format:
 - Complete HTML document with <!DOCTYPE html>
 - Embed full CSS in <style> tag
-- Use HTML tables for competencies and references (not CSS Grid) for Word compatibility
+- Use HTML tables for ALL layouts (competencies, references, job headers) - NOT flexbox or CSS Grid
+- Use direct hex color codes like #1a365d, NOT CSS variables
 - Include @page rules for PDF conversion
 - Include print media queries
-- ALL links must use proper <a href="URL"> tags with target="_blank"
+- ALL links must use proper <a href="URL"> tags with target="_blank" and inline color styling
 
 Return ONLY the complete HTML code, nothing else.`;
 
@@ -693,18 +735,20 @@ Deno.serve(async (req) => {
     }
 
     const requestData: RequestData = await req.json();
-    const { parsedResumeData, jobTarget, documentType } = requestData;
+    const { parsedResumeData, jobTarget, documentType, exampleResumeText, exampleCoverLetterText } = requestData;
 
     console.log(
       `Generating documents for: ${jobTarget.position} at ${jobTarget.companyName}`
     );
+    console.log(`Example resume text provided: ${!!exampleResumeText}`);
+    console.log(`Example cover letter text provided: ${!!exampleCoverLetterText}`);
 
     const documents: Array<{ type: string; rawContent: string; htmlContent: string }> = [];
 
     // Generate Resume
     if (documentType === "resume" || documentType === "both") {
       console.log("Generating resume...");
-      const resumePrompt = buildResumePrompt(parsedResumeData, jobTarget);
+      const resumePrompt = buildResumePrompt(parsedResumeData, jobTarget, exampleResumeText);
       const rawResume = await generateWithOpenAI(resumePrompt, openaiApiKey, parsedResumeData.personalInfo);
       console.log("Resume content generated, formatting with Claude...");
       const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo);
@@ -719,7 +763,7 @@ Deno.serve(async (req) => {
     // Generate Cover Letter
     if (documentType === "cover-letter" || documentType === "both") {
       console.log("Generating cover letter...");
-      const coverLetterPrompt = buildCoverLetterPrompt(parsedResumeData, jobTarget);
+      const coverLetterPrompt = buildCoverLetterPrompt(parsedResumeData, jobTarget, exampleCoverLetterText);
       const rawCoverLetter = await generateWithOpenAI(coverLetterPrompt, openaiApiKey, parsedResumeData.personalInfo);
       console.log("Cover letter content generated, formatting with Claude...");
       const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo);

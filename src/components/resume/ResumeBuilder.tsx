@@ -29,6 +29,10 @@ export function ResumeBuilder() {
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
   const [currentJobIndex, setCurrentJobIndex] = useState(0);
   const [settingsRefreshTrigger, setSettingsRefreshTrigger] = useState(0);
+  const [exampleTexts, setExampleTexts] = useState<{
+    exampleResumeText: string | null;
+    exampleCoverLetterText: string | null;
+  }>({ exampleResumeText: null, exampleCoverLetterText: null });
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
@@ -67,6 +71,8 @@ export function ResumeBuilder() {
             parsedResumeData: parsedResume,
             jobTarget: job,
             documentType,
+            exampleResumeText: exampleTexts.exampleResumeText,
+            exampleCoverLetterText: exampleTexts.exampleCoverLetterText,
           },
         });
 
@@ -204,7 +210,7 @@ export function ResumeBuilder() {
           {/* Right Column - Settings & Preview */}
           <div className="flex flex-col space-y-6">
             {/* Upload Examples */}
-            <UploadExamples />
+            <UploadExamples onExamplesChange={setExampleTexts} />
             
             {/* Recent Settings */}
             <RecentSettings 
