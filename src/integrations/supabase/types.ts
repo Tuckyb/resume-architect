@@ -44,6 +44,42 @@ export type Database = {
         }
         Relationships: []
       }
+      recent_settings: {
+        Row: {
+          created_at: string
+          document_type: string | null
+          example_coverletter_url: string | null
+          example_resume_url: string | null
+          id: string
+          jobs_data: Json | null
+          name: string
+          resume_data: Json | null
+          style_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_type?: string | null
+          example_coverletter_url?: string | null
+          example_resume_url?: string | null
+          id?: string
+          jobs_data?: Json | null
+          name: string
+          resume_data?: Json | null
+          style_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_type?: string | null
+          example_coverletter_url?: string | null
+          example_resume_url?: string | null
+          id?: string
+          jobs_data?: Json | null
+          name?: string
+          resume_data?: Json | null
+          style_name?: string | null
+        }
+        Relationships: []
+      }
       skills: {
         Row: {
           created_at: string

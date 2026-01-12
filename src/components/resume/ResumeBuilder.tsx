@@ -14,7 +14,7 @@ import { PdfUploader } from "./PdfUploader";
 import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 
-import { ExampleResumesManager } from "./ExampleResumesManager";
+import { RecentSettings } from "./RecentSettings";
 import { UploadExamples } from "./UploadExamples";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -185,8 +185,14 @@ export function ResumeBuilder() {
             {/* Upload Examples */}
             <UploadExamples />
             
-            {/* Saved Resumes */}
-            <ExampleResumesManager onLoadResume={setParsedResume} />
+            {/* Recent Settings */}
+            <RecentSettings 
+              onLoadSettings={({ resumeData, jobs: loadedJobs, documentType: loadedDocType }) => {
+                if (resumeData) setParsedResume(resumeData);
+                if (loadedJobs.length > 0) setJobs(loadedJobs);
+                setDocumentType(loadedDocType);
+              }} 
+            />
             
             <div>
               <h2 className="text-xl font-semibold text-foreground mb-4">Generated Documents</h2>
