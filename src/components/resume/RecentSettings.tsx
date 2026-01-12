@@ -26,16 +26,17 @@ interface RecentSettingsProps {
     jobs: JobTarget[];
     documentType: "resume" | "cover-letter" | "both";
   }) => void;
+  refreshTrigger?: number;
 }
 
-export function RecentSettings({ onLoadSettings }: RecentSettingsProps) {
+export function RecentSettings({ onLoadSettings, refreshTrigger }: RecentSettingsProps) {
   const { toast } = useToast();
   const [recentSettings, setRecentSettings] = useState<RecentSetting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchRecentSettings();
-  }, []);
+  }, [refreshTrigger]);
 
   const fetchRecentSettings = async () => {
     setIsLoading(true);
