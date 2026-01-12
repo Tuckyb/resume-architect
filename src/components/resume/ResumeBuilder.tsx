@@ -15,6 +15,7 @@ import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 
 import { ExampleResumesManager } from "./ExampleResumesManager";
+import { UploadExamples } from "./UploadExamples";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -181,6 +182,8 @@ export function ResumeBuilder() {
 
           {/* Right Column - Settings & Preview */}
           <div className="flex flex-col space-y-6">
+            {/* Upload Examples */}
+            <UploadExamples />
             
             {/* Saved Resumes */}
             <ExampleResumesManager onLoadResume={setParsedResume} />
