@@ -385,7 +385,7 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
             </div>
           </div>
 
-          <ScrollArea className="h-[500px] border rounded-lg">
+          <ScrollArea className="h-[600px] border rounded-lg">
             <div className="p-3 space-y-3">
               {jobs.map((job) => (
                 <div
