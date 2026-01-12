@@ -522,6 +522,27 @@ body {
 }
 `;
 
+  // Build the contact line with proper HTML links
+  const linkedInLink = personalInfo?.linkedIn 
+    ? `<a href="${personalInfo.linkedIn.startsWith('http') ? personalInfo.linkedIn : 'https://' + personalInfo.linkedIn}" target="_blank" style="color: var(--accent-color); text-decoration: none;">LinkedIn</a>` 
+    : '';
+  const portfolioLink = personalInfo?.portfolio 
+    ? `<a href="${personalInfo.portfolio.startsWith('http') ? personalInfo.portfolio : 'https://' + personalInfo.portfolio}" target="_blank" style="color: var(--accent-color); text-decoration: none;">Portfolio</a>` 
+    : '';
+  const emailLink = personalInfo?.email 
+    ? `<a href="mailto:${personalInfo.email}" style="color: var(--accent-color); text-decoration: none;">${personalInfo.email}</a>` 
+    : '';
+  
+  const contactParts = [
+    personalInfo?.address || '',
+    personalInfo?.phone || '',
+    emailLink,
+    linkedInLink,
+    portfolioLink
+  ].filter(Boolean);
+  
+  const contactInfoHTML = contactParts.join(' <span>|</span> ');
+
   const resumePrompt = `You are a professional resume formatter using the resume-formatter skill.
 
 Transform the following ${docType} content into a beautifully styled HTML document.
@@ -531,8 +552,8 @@ Transform the following ${docType} content into a beautifully styled HTML docume
 - Email: ${personalInfo?.email || ""}
 - Phone: ${personalInfo?.phone || ""}
 - Address: ${personalInfo?.address || ""}
-- LinkedIn: ${personalInfo?.linkedIn || ""}
-- Portfolio: ${personalInfo?.portfolio || ""}
+- LinkedIn URL: ${personalInfo?.linkedIn || ""}
+- Portfolio URL: ${personalInfo?.portfolio || ""}
 
 ## CSS FRAMEWORK (embed this in the HTML):
 ${cssFramework}
@@ -545,12 +566,19 @@ ${content}
 ### CRITICAL - NO PLACEHOLDERS:
 - NEVER use [Your Name], [Your Email], [Your Phone], [Your Address], [City, State, Zip] or any similar placeholder text
 - Use the EXACT personal information provided above
-- If LinkedIn or Portfolio URLs exist, make them clickable hyperlinks
+
+### CRITICAL - HEADER MUST INCLUDE ALL CONTACT INFO:
+For the header section, you MUST include this EXACT HTML structure:
+
+<div class="header">
+  <div class="name">${personalInfo?.fullName || ""}</div>
+  <div class="contact-info">
+    ${contactInfoHTML}
+  </div>
+</div>
 
 ### For Resumes - Use these sections in order:
-1. Header (.header) - Use the candidate's ACTUAL name "${personalInfo?.fullName || ""}" in .name class
-   - Contact info (.contact-info) must show: ${personalInfo?.address || ""} | ${personalInfo?.phone || ""} | ${personalInfo?.email || ""}
-   - Add links for LinkedIn and Portfolio if provided
+1. Header (.header) - Use the EXACT header HTML shown above with actual name and all contact info
 2. Professional Summary (.section with .summary)
 3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout
 4. Professional Experience - Each job in .job-entry with .job-header (flexbox) and .job-description
@@ -560,7 +588,13 @@ ${content}
 8. References section if provided
 
 ### For Cover Letters - Use these sections:
-1. Letter header (.letter-header) with .sender-info containing the ACTUAL contact details
+1. Letter header (.letter-header) with .sender-info containing ALL contact details:
+   - Name: ${personalInfo?.fullName || ""}
+   - Address: ${personalInfo?.address || ""}
+   - Phone: ${personalInfo?.phone || ""}
+   - Email: ${personalInfo?.email || ""} (as mailto: link)
+   - LinkedIn: ${linkedInLink} (as clickable link)
+   - Portfolio: ${portfolioLink} (as clickable link)
 2. Date (.date)
 3. Recipient info (.recipient-info)
 4. Subject line (.subject-line)
@@ -573,7 +607,7 @@ ${content}
 - Use HTML tables for competencies and references (not CSS Grid) for Word compatibility
 - Include @page rules for PDF conversion
 - Include print media queries
-- Mobile responsive design
+- ALL links must use proper <a href="URL"> tags with target="_blank"
 
 Return ONLY the complete HTML code, nothing else.`;
 
