@@ -200,8 +200,9 @@ IMPORTANT:
 - Make the letter 300-400 words, unique and memorable`;
 }
 
-async function generateWithOpenAI(prompt: string, apiKey: string): Promise<string> {
+async function generateWithOpenAI(prompt: string, apiKey: string, personalInfo?: ParsedResumeData['personalInfo']): Promise<string> {
   console.log("Calling OpenAI API...");
+  console.log("Personal info being used:", JSON.stringify(personalInfo));
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -214,8 +215,18 @@ async function generateWithOpenAI(prompt: string, apiKey: string): Promise<strin
       messages: [
         {
           role: "system",
-          content:
-            "You are an expert resume writer and career coach. You create professional, tailored resumes and cover letters that help candidates stand out while being ATS-friendly.",
+          content: `You are an expert resume writer and career coach. You create professional, tailored resumes and cover letters.
+
+CRITICAL RULE: You MUST NEVER use placeholder text like [Your Name], [Your Email], [Your Phone], [Your Address], [City, State, Zip], etc.
+Always use the EXACT information provided in the user's prompt. If any information is missing, simply omit that field - DO NOT use brackets or placeholder text.
+
+The candidate's information is:
+- Name: ${personalInfo?.fullName || ""}
+- Email: ${personalInfo?.email || ""}
+- Phone: ${personalInfo?.phone || ""}
+- Address: ${personalInfo?.address || ""}
+- LinkedIn: ${personalInfo?.linkedIn || ""}
+- Portfolio: ${personalInfo?.portfolio || ""}`,
         },
         { role: "user", content: prompt },
       ],
@@ -231,11 +242,25 @@ async function generateWithOpenAI(prompt: string, apiKey: string): Promise<strin
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  let content = data.choices[0].message.content;
+  
+  // Post-process to replace any remaining placeholders with actual values
+  if (personalInfo) {
+    content = content.replace(/\[Your Name\]/gi, personalInfo.fullName || '');
+    content = content.replace(/\[Your Email\]/gi, personalInfo.email || '');
+    content = content.replace(/\[Your Phone\]/gi, personalInfo.phone || '');
+    content = content.replace(/\[Your Address\]/gi, personalInfo.address || '');
+    content = content.replace(/\[City,?\s*State,?\s*Zip\]/gi, '');
+    content = content.replace(/\[LinkedIn URL\]/gi, personalInfo.linkedIn || '');
+    content = content.replace(/\[Portfolio URL\]/gi, personalInfo.portfolio || '');
+  }
+  
+  return content;
 }
 
-async function formatWithClaude(content: string, docType: string, apiKey: string): Promise<string> {
+async function formatWithClaude(content: string, docType: string, apiKey: string, personalInfo?: ParsedResumeData['personalInfo']): Promise<string> {
   console.log("Calling Claude API for HTML formatting with resume-formatter skill...");
+  console.log("Personal info for formatting:", JSON.stringify(personalInfo));
 
   const cssFramework = `
 /* Professional Resume/Cover Letter CSS Framework */
@@ -501,6 +526,14 @@ body {
 
 Transform the following ${docType} content into a beautifully styled HTML document.
 
+## CRITICAL - CANDIDATE PERSONAL INFORMATION (USE THESE EXACT VALUES):
+- Full Name: ${personalInfo?.fullName || ""}
+- Email: ${personalInfo?.email || ""}
+- Phone: ${personalInfo?.phone || ""}
+- Address: ${personalInfo?.address || ""}
+- LinkedIn: ${personalInfo?.linkedIn || ""}
+- Portfolio: ${personalInfo?.portfolio || ""}
+
 ## CSS FRAMEWORK (embed this in the HTML):
 ${cssFramework}
 
@@ -509,22 +542,30 @@ ${content}
 
 ## REQUIREMENTS:
 
+### CRITICAL - NO PLACEHOLDERS:
+- NEVER use [Your Name], [Your Email], [Your Phone], [Your Address], [City, State, Zip] or any similar placeholder text
+- Use the EXACT personal information provided above
+- If LinkedIn or Portfolio URLs exist, make them clickable hyperlinks
+
 ### For Resumes - Use these sections in order:
-1. Header (.header) - name (.name), contact info (.contact-info)
+1. Header (.header) - Use the candidate's ACTUAL name "${personalInfo?.fullName || ""}" in .name class
+   - Contact info (.contact-info) must show: ${personalInfo?.address || ""} | ${personalInfo?.phone || ""} | ${personalInfo?.email || ""}
+   - Add links for LinkedIn and Portfolio if provided
 2. Professional Summary (.section with .summary)
 3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout
 4. Professional Experience - Each job in .job-entry with .job-header (flexbox) and .job-description
 5. Education (.education-entry)
 6. Certifications (.certification-entry)
 7. Key Achievements (.achievements-list)
+8. References section if provided
 
 ### For Cover Letters - Use these sections:
-1. Letter header (.letter-header) with .sender-info
+1. Letter header (.letter-header) with .sender-info containing the ACTUAL contact details
 2. Date (.date)
 3. Recipient info (.recipient-info)
 4. Subject line (.subject-line)
 5. Letter body (.letter-body) with paragraphs
-6. Signature (.signature)
+6. Signature (.signature) with ACTUAL name "${personalInfo?.fullName || ""}"
 
 ### Output Format:
 - Complete HTML document with <!DOCTYPE html>
@@ -630,9 +671,9 @@ Deno.serve(async (req) => {
     if (documentType === "resume" || documentType === "both") {
       console.log("Generating resume...");
       const resumePrompt = buildResumePrompt(parsedResumeData, jobTarget);
-      const rawResume = await generateWithOpenAI(resumePrompt, openaiApiKey);
+      const rawResume = await generateWithOpenAI(resumePrompt, openaiApiKey, parsedResumeData.personalInfo);
       console.log("Resume content generated, formatting with Claude...");
-      const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey);
+      const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo);
 
       documents.push({
         type: "resume",
@@ -645,9 +686,9 @@ Deno.serve(async (req) => {
     if (documentType === "cover-letter" || documentType === "both") {
       console.log("Generating cover letter...");
       const coverLetterPrompt = buildCoverLetterPrompt(parsedResumeData, jobTarget);
-      const rawCoverLetter = await generateWithOpenAI(coverLetterPrompt, openaiApiKey);
+      const rawCoverLetter = await generateWithOpenAI(coverLetterPrompt, openaiApiKey, parsedResumeData.personalInfo);
       console.log("Cover letter content generated, formatting with Claude...");
-      const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey);
+      const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo);
 
       documents.push({
         type: "cover-letter",
