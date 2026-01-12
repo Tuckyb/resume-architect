@@ -60,8 +60,8 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
   const jobIds = Object.keys(groupedDocs);
 
   return (
-    <Card className="p-4 flex-1">
-      <Tabs defaultValue={jobIds[0]}>
+    <Card className="p-4 min-h-[600px] flex-1 flex flex-col">
+      <Tabs defaultValue={jobIds[0]} className="flex flex-col flex-1">
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
           {jobIds.map((jobId) => (
             <TabsTrigger key={jobId} value={jobId} className="text-xs">
@@ -73,8 +73,8 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
           const jobDocs = groupedDocs[jobId];
           const job = jobs.find(j => j.id === jobId);
           return (
-            <TabsContent key={jobId} value={jobId}>
-              <Tabs defaultValue={jobDocs[0]?.type}>
+            <TabsContent key={jobId} value={jobId} className="flex-1 flex flex-col">
+              <Tabs defaultValue={jobDocs[0]?.type} className="flex flex-col flex-1">
                 <TabsList className="mb-4">
                   {jobDocs.map((doc) => (
                     <TabsTrigger key={doc.type} value={doc.type}>
@@ -83,7 +83,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
                   ))}
                 </TabsList>
                 {jobDocs.map((doc) => (
-                  <TabsContent key={doc.type} value={doc.type}>
+                  <TabsContent key={doc.type} value={doc.type} className="flex-1 flex flex-col">
                     <div className="flex gap-2 mb-4">
                       <Button variant="outline" size="sm" onClick={() => downloadHTML(doc, job)}>
                         <Download className="h-4 w-4 mr-2" />Download
@@ -92,7 +92,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
                         <Printer className="h-4 w-4 mr-2" />Print/PDF
                       </Button>
                     </div>
-                    <ScrollArea className="h-[calc(100vh-280px)] min-h-[600px] border rounded-lg">
+                    <ScrollArea className="flex-1 min-h-[500px] border rounded-lg">
                       <div className="bg-white text-black" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
                     </ScrollArea>
                   </TabsContent>
