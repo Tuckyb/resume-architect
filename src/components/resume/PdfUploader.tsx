@@ -1,10 +1,85 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Upload, FileText, Check, X, Loader2 } from "lucide-react";
+import { Upload, FileText, Check, X, Loader2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ParsedResumeData } from "@/types/resume";
+
+// Example resume data for demo purposes
+const EXAMPLE_RESUME: ParsedResumeData = {
+  rawText: "Example resume loaded",
+  personalInfo: {
+    fullName: "Alex Johnson",
+    email: "alex.johnson@email.com",
+    phone: "(555) 123-4567",
+    address: "San Francisco, CA",
+    linkedIn: "linkedin.com/in/alexjohnson",
+    portfolio: "alexjohnson.dev",
+  },
+  workExperience: [
+    {
+      id: "1",
+      title: "Senior Software Engineer",
+      company: "TechCorp Inc.",
+      period: "2021 - Present",
+      responsibilities: [
+        "Led development of microservices architecture serving 2M+ daily users",
+        "Mentored team of 5 junior developers, improving code quality by 40%",
+        "Implemented CI/CD pipelines reducing deployment time by 60%",
+        "Designed and built real-time analytics dashboard using React and Node.js",
+      ],
+    },
+    {
+      id: "2",
+      title: "Software Engineer",
+      company: "StartupXYZ",
+      period: "2018 - 2021",
+      responsibilities: [
+        "Built RESTful APIs handling 500K+ requests per day",
+        "Developed responsive web applications using React and TypeScript",
+        "Collaborated with product team to deliver features on time",
+        "Optimized database queries reducing load times by 45%",
+      ],
+    },
+    {
+      id: "3",
+      title: "Junior Developer",
+      company: "Digital Agency Co.",
+      period: "2016 - 2018",
+      responsibilities: [
+        "Created client websites using HTML, CSS, and JavaScript",
+        "Maintained and updated existing WordPress sites",
+        "Assisted in mobile app development using React Native",
+      ],
+    },
+  ],
+  education: [
+    {
+      id: "1",
+      degree: "Bachelor of Science in Computer Science",
+      institution: "University of California, Berkeley",
+      period: "2012 - 2016",
+      achievements: ["Dean's List", "3.8 GPA", "Computer Science Club President"],
+    },
+  ],
+  skills: [
+    { category: "Languages", items: ["JavaScript", "TypeScript", "Python", "Go", "SQL"] },
+    { category: "Frontend", items: ["React", "Next.js", "Vue.js", "Tailwind CSS", "HTML/CSS"] },
+    { category: "Backend", items: ["Node.js", "Express", "PostgreSQL", "MongoDB", "Redis"] },
+    { category: "DevOps", items: ["Docker", "Kubernetes", "AWS", "GitHub Actions", "Terraform"] },
+  ],
+  certifications: [
+    "AWS Certified Solutions Architect",
+    "Google Cloud Professional Developer",
+  ],
+  achievements: [
+    "Increased application performance by 200% through caching optimization",
+    "Delivered $2M project under budget and ahead of schedule",
+    "Open source contributor with 500+ GitHub stars",
+    "Speaker at ReactConf 2023",
+  ],
+};
 
 interface PdfUploaderProps {
   onParsed: (data: ParsedResumeData) => void;
@@ -132,17 +207,35 @@ export function PdfUploader({ onParsed, parsedData }: PdfUploaderProps) {
               <p className="text-muted-foreground mb-2">
                 Drag and drop your PDF here, or
               </p>
-              <label>
-                <input
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-                <Button variant="outline" asChild>
-                  <span className="cursor-pointer">Browse Files</span>
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <label>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button variant="outline" asChild>
+                    <span className="cursor-pointer">Browse Files</span>
+                  </Button>
+                </label>
+                <span className="text-muted-foreground text-sm">or</span>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setFileName("Example Resume (Alex Johnson)");
+                    onParsed(EXAMPLE_RESUME);
+                    toast({
+                      title: "Example Resume Loaded",
+                      description: "Sample resume data has been loaded for demo purposes.",
+                    });
+                  }}
+                  className="gap-2"
+                >
+                  <User className="h-4 w-4" />
+                  Use Example Resume
                 </Button>
-              </label>
+              </div>
             </>
           )}
         </div>
