@@ -92,8 +92,8 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
                         <Printer className="h-4 w-4 mr-2" />Print/PDF
                       </Button>
                     </div>
-                    <ScrollArea className="h-[700px] border rounded-lg">
-                      <div className="p-4 bg-white text-black" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
+                    <ScrollArea className="h-[calc(100vh-280px)] min-h-[600px] border rounded-lg">
+                      <div className="bg-white text-black" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
                     </ScrollArea>
                   </TabsContent>
                 ))}
