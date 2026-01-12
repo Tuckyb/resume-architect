@@ -15,7 +15,7 @@ import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 
 import { RecentSettings } from "./RecentSettings";
-import { UploadExamples } from "./UploadExamples";
+import { UploadExamples, ExampleTexts } from "./UploadExamples";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -29,10 +29,12 @@ export function ResumeBuilder() {
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
   const [currentJobIndex, setCurrentJobIndex] = useState(0);
   const [settingsRefreshTrigger, setSettingsRefreshTrigger] = useState(0);
-  const [exampleTexts, setExampleTexts] = useState<{
-    exampleResumeText: string | null;
-    exampleCoverLetterText: string | null;
-  }>({ exampleResumeText: null, exampleCoverLetterText: null });
+  const [exampleTexts, setExampleTexts] = useState<ExampleTexts>({ 
+    exampleResumeText: null, 
+    exampleCoverLetterText: null,
+    styledResumeText: null,
+    styledCoverLetterText: null,
+  });
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
@@ -73,6 +75,8 @@ export function ResumeBuilder() {
             documentType,
             exampleResumeText: exampleTexts.exampleResumeText,
             exampleCoverLetterText: exampleTexts.exampleCoverLetterText,
+            styledResumeText: exampleTexts.styledResumeText,
+            styledCoverLetterText: exampleTexts.styledCoverLetterText,
           },
         });
 
