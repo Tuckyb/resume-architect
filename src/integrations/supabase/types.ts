@@ -14,7 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      example_resumes: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          original_filename: string | null
+          parsed_data: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          original_filename?: string | null
+          parsed_data: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          original_filename?: string | null
+          parsed_data?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      skills: {
+        Row: {
+          created_at: string
+          css_framework: string | null
+          description: string | null
+          example_coverletter_html: string | null
+          example_resume_html: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          css_framework?: string | null
+          description?: string | null
+          example_coverletter_html?: string | null
+          example_resume_html?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          css_framework?: string | null
+          description?: string | null
+          example_coverletter_html?: string | null
+          example_resume_html?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
