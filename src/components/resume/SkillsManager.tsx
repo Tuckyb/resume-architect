@@ -172,7 +172,7 @@ export function SkillsManager({ selectedSkill, onSkillSelect }: SkillsManagerPro
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <Wand2 className="h-5 w-5" />
-          Skills (Formatting Templates)
+          Skills
         </h2>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -204,8 +204,17 @@ export function SkillsManager({ selectedSkill, onSkillSelect }: SkillsManagerPro
                   onChange={(e) => setFormDescription(e.target.value)}
                 />
               </div>
+              
+              {/* Upload Examples Section */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="font-medium mb-3">Upload Examples</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Upload example PDFs that show the desired output formatting style.
+                </p>
+              </div>
+              
               <div className="space-y-2">
-                <Label>Example Resume PDF (for formatting reference)</Label>
+                <Label>Example Resume PDF</Label>
                 <div className="flex items-center gap-2">
                   <label className="flex-1">
                     <input
@@ -233,7 +242,7 @@ export function SkillsManager({ selectedSkill, onSkillSelect }: SkillsManagerPro
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Example Cover Letter PDF (for formatting reference)</Label>
+                <Label>Example Cover Letter PDF</Label>
                 <div className="flex items-center gap-2">
                   <label className="flex-1">
                     <input
@@ -281,7 +290,7 @@ export function SkillsManager({ selectedSkill, onSkillSelect }: SkillsManagerPro
       </div>
 
       <p className="text-muted-foreground text-sm mb-4">
-        Save formatting templates with example PDFs. The examples will be used as reference for generating styled documents.
+        Save formatting skills with example output PDFs. Select a skill to apply its formatting style when generating documents.
       </p>
 
       <ScrollArea className="h-[200px]">
