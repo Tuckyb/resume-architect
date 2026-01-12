@@ -98,91 +98,93 @@ export function ResumeBuilder() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground mb-2">
-          AI Resume & Cover Letter Generator
-        </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Upload your resume PDF and job listings CSV. Select which jobs to apply for,
-          and let AI create tailored documents for each application.
-        </p>
-      </div>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Left Column - Inputs */}
-        <div className="space-y-6">
-          {/* PDF Upload */}
-          <PdfUploader onParsed={setParsedResume} parsedData={parsedResume} />
-
-          {/* Job List Upload */}
-          <JobListUploader jobs={jobs} onJobsChange={setJobs} />
-
-          {/* Document Type & Generate */}
-          <Card className="p-6">
-            <h3 className="text-lg font-semibold mb-4">Document Type</h3>
-            <RadioGroup
-              value={documentType}
-              onValueChange={(value) =>
-                setDocumentType(value as "resume" | "cover-letter" | "both")
-              }
-              className="flex flex-wrap gap-4 mb-6"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="resume" id="resume" />
-                <Label htmlFor="resume">Resume Only</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="cover-letter" id="cover-letter" />
-                <Label htmlFor="cover-letter">Cover Letter Only</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="both" id="both" />
-                <Label htmlFor="both">Both</Label>
-              </div>
-            </RadioGroup>
-
-            {/* Validation Alerts */}
-            {!parsedResume?.rawText && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Please upload your resume PDF to continue.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {parsedResume?.rawText && selectedJobs.length === 0 && (
-              <Alert className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Select at least one job from the list above.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || !parsedResume?.rawText || selectedJobs.length === 0}
-              className="w-full"
-              size="lg"
-            >
-              <Sparkles className="mr-2 h-5 w-5" />
-              {isGenerating
-                ? `Generating (${currentJobIndex + 1}/${selectedJobs.length})...`
-                : `Generate for ${selectedJobs.length} Job${selectedJobs.length !== 1 ? "s" : ""}`}
-            </Button>
-          </Card>
+    <div className="min-h-screen w-full bg-background py-8 px-4 md:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
+            AI Resume & Cover Letter Generator
+          </h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Upload your resume PDF and job listings CSV. Select which jobs to apply for,
+            and let AI create tailored documents for each application.
+          </p>
         </div>
 
-        {/* Right Column - Preview */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Generated Documents</h2>
-          <DocumentPreview 
-            documents={generatedDocs} 
-            isLoading={isGenerating} 
-            jobs={jobs}
-          />
+        <div className="grid gap-8 lg:grid-cols-2">
+          {/* Left Column - Inputs */}
+          <div className="space-y-6">
+            {/* PDF Upload */}
+            <PdfUploader onParsed={setParsedResume} parsedData={parsedResume} />
+
+            {/* Job List Upload */}
+            <JobListUploader jobs={jobs} onJobsChange={setJobs} />
+
+            {/* Document Type & Generate */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Document Type</h3>
+              <RadioGroup
+                value={documentType}
+                onValueChange={(value) =>
+                  setDocumentType(value as "resume" | "cover-letter" | "both")
+                }
+                className="flex flex-wrap gap-4 mb-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="resume" id="resume" />
+                  <Label htmlFor="resume">Resume Only</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="cover-letter" id="cover-letter" />
+                  <Label htmlFor="cover-letter">Cover Letter Only</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="both" id="both" />
+                  <Label htmlFor="both">Both</Label>
+                </div>
+              </RadioGroup>
+
+              {/* Validation Alerts */}
+              {!parsedResume?.rawText && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Please upload your resume PDF to continue.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {parsedResume?.rawText && selectedJobs.length === 0 && (
+                <Alert className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Select at least one job from the list above.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <Button
+                onClick={handleGenerate}
+                disabled={isGenerating || !parsedResume?.rawText || selectedJobs.length === 0}
+                className="w-full"
+                size="lg"
+              >
+                <Sparkles className="mr-2 h-5 w-5" />
+                {isGenerating
+                  ? `Generating (${currentJobIndex + 1}/${selectedJobs.length})...`
+                  : `Generate for ${selectedJobs.length} Job${selectedJobs.length !== 1 ? "s" : ""}`}
+              </Button>
+            </Card>
+          </div>
+
+          {/* Right Column - Preview */}
+          <div className="flex flex-col">
+            <h2 className="text-xl font-semibold text-foreground mb-4">Generated Documents</h2>
+            <DocumentPreview 
+              documents={generatedDocs} 
+              isLoading={isGenerating} 
+              jobs={jobs}
+            />
+          </div>
         </div>
       </div>
     </div>

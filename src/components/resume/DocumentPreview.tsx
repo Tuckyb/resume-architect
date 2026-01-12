@@ -41,7 +41,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   if (isLoading) {
     return (
-      <Card className="p-8 flex flex-col items-center justify-center min-h-[400px]">
+      <Card className="p-8 flex flex-col items-center justify-center min-h-[600px] flex-1">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Generating documents...</p>
       </Card>
@@ -50,7 +50,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   if (documents.length === 0) {
     return (
-      <Card className="p-8 flex flex-col items-center justify-center min-h-[400px] text-center">
+      <Card className="p-8 flex flex-col items-center justify-center min-h-[600px] flex-1 text-center">
         <FileText className="h-12 w-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Upload resume, select jobs, and generate.</p>
       </Card>
@@ -60,7 +60,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
   const jobIds = Object.keys(groupedDocs);
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 flex-1">
       <Tabs defaultValue={jobIds[0]}>
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
           {jobIds.map((jobId) => (
@@ -92,8 +92,8 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
                         <Printer className="h-4 w-4 mr-2" />Print/PDF
                       </Button>
                     </div>
-                    <ScrollArea className="h-[500px] border rounded-lg">
-                      <div className="p-4 bg-white" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
+                    <ScrollArea className="h-[700px] border rounded-lg">
+                      <div className="p-4 bg-white text-black" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
                     </ScrollArea>
                   </TabsContent>
                 ))}
