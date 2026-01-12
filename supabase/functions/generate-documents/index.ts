@@ -63,6 +63,8 @@ interface RequestData {
   documentType: "resume" | "cover-letter" | "both";
   exampleResumeText?: string | null;
   exampleCoverLetterText?: string | null;
+  styledResumeText?: string | null;
+  styledCoverLetterText?: string | null;
 }
 
 function buildResumePrompt(resume: ParsedResumeData, job: JobTarget, exampleText?: string | null): string {
@@ -278,9 +280,10 @@ The candidate's information is:
   return content;
 }
 
-async function formatWithClaude(content: string, docType: string, apiKey: string, personalInfo?: ParsedResumeData['personalInfo']): Promise<string> {
+async function formatWithClaude(content: string, docType: string, apiKey: string, personalInfo?: ParsedResumeData['personalInfo'], styledExampleText?: string | null): Promise<string> {
   console.log("Calling Claude API for HTML formatting with resume-formatter skill...");
   console.log("Personal info for formatting:", JSON.stringify(personalInfo));
+  console.log("Styled example provided:", !!styledExampleText);
 
   // Word-compatible CSS - NO CSS variables, NO flexbox, use inline colors and tables
   const cssFramework = `
@@ -576,10 +579,21 @@ body {
   
   const contactInfoHTML = contactParts.join(' <span>|</span> ');
 
+  // Build styled example section if provided
+  const styledExampleSection = styledExampleText ? `
+## STYLED EXAMPLE TO FOLLOW:
+Here is an example of a styled ${docType} that shows the desired formatting, layout, and visual style.
+MATCH THIS STYLE as closely as possible while maintaining Word compatibility:
+
+${styledExampleText}
+
+=== END OF STYLED EXAMPLE ===
+` : "";
+
   const resumePrompt = `You are a professional resume formatter using the resume-formatter skill.
 
 Transform the following ${docType} content into a beautifully styled HTML document that is FULLY COMPATIBLE WITH MICROSOFT WORD.
-
+${styledExampleSection}
 ## CRITICAL - WORD COMPATIBILITY RULES:
 1. DO NOT use CSS variables (var(--something)) - use direct hex colors like #1a365d
 2. DO NOT use flexbox (display: flex) - use HTML tables for layouts
@@ -735,13 +749,23 @@ Deno.serve(async (req) => {
     }
 
     const requestData: RequestData = await req.json();
-    const { parsedResumeData, jobTarget, documentType, exampleResumeText, exampleCoverLetterText } = requestData;
+    const { 
+      parsedResumeData, 
+      jobTarget, 
+      documentType, 
+      exampleResumeText, 
+      exampleCoverLetterText,
+      styledResumeText,
+      styledCoverLetterText 
+    } = requestData;
 
     console.log(
       `Generating documents for: ${jobTarget.position} at ${jobTarget.companyName}`
     );
     console.log(`Example resume text provided: ${!!exampleResumeText}`);
     console.log(`Example cover letter text provided: ${!!exampleCoverLetterText}`);
+    console.log(`Styled resume example provided: ${!!styledResumeText}`);
+    console.log(`Styled cover letter example provided: ${!!styledCoverLetterText}`);
 
     const documents: Array<{ type: string; rawContent: string; htmlContent: string }> = [];
 
@@ -751,7 +775,7 @@ Deno.serve(async (req) => {
       const resumePrompt = buildResumePrompt(parsedResumeData, jobTarget, exampleResumeText);
       const rawResume = await generateWithOpenAI(resumePrompt, openaiApiKey, parsedResumeData.personalInfo);
       console.log("Resume content generated, formatting with Claude...");
-      const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo);
+      const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo, styledResumeText);
 
       documents.push({
         type: "resume",
@@ -766,7 +790,7 @@ Deno.serve(async (req) => {
       const coverLetterPrompt = buildCoverLetterPrompt(parsedResumeData, jobTarget, exampleCoverLetterText);
       const rawCoverLetter = await generateWithOpenAI(coverLetterPrompt, openaiApiKey, parsedResumeData.personalInfo);
       console.log("Cover letter content generated, formatting with Claude...");
-      const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo);
+      const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo, styledCoverLetterText);
 
       documents.push({
         type: "cover-letter",
