@@ -13,20 +13,11 @@ import {
 import { PdfUploader } from "./PdfUploader";
 import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
-import { SkillsManager } from "./SkillsManager";
+
 import { ExampleResumesManager } from "./ExampleResumesManager";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-interface Skill {
-  id: string;
-  name: string;
-  description: string | null;
-  example_resume_html: string | null;
-  example_coverletter_html: string | null;
-  css_framework: string | null;
-  created_at: string;
-}
 
 export function ResumeBuilder() {
   const { toast } = useToast();
@@ -36,7 +27,7 @@ export function ResumeBuilder() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
   const [currentJobIndex, setCurrentJobIndex] = useState(0);
-  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
@@ -75,11 +66,6 @@ export function ResumeBuilder() {
             parsedResumeData: parsedResume,
             jobTarget: job,
             documentType,
-            skillContext: selectedSkill ? {
-              exampleResumeHtml: selectedSkill.example_resume_html,
-              exampleCoverLetterHtml: selectedSkill.example_coverletter_html,
-              cssFramework: selectedSkill.css_framework,
-            } : null,
           },
         });
 
@@ -195,11 +181,6 @@ export function ResumeBuilder() {
 
           {/* Right Column - Settings & Preview */}
           <div className="flex flex-col space-y-6">
-            {/* Skills Manager */}
-            <SkillsManager 
-              selectedSkill={selectedSkill} 
-              onSkillSelect={setSelectedSkill} 
-            />
             
             {/* Saved Resumes */}
             <ExampleResumesManager onLoadResume={setParsedResume} />
