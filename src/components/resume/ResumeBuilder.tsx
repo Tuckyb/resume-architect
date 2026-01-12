@@ -28,7 +28,7 @@ export function ResumeBuilder() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
   const [currentJobIndex, setCurrentJobIndex] = useState(0);
-  
+  const [settingsRefreshTrigger, setSettingsRefreshTrigger] = useState(0);
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
@@ -82,6 +82,27 @@ export function ResumeBuilder() {
           }));
           allDocs.push(...docsWithJobId);
           setGeneratedDocs([...allDocs]);
+        }
+      }
+
+      // Save settings to recent_settings after successful generation
+      if (allDocs.length > 0) {
+        const settingName = selectedJobs.length === 1 
+          ? `${selectedJobs[0].position} @ ${selectedJobs[0].companyName}`
+          : `${selectedJobs.length} jobs - ${new Date().toLocaleDateString()}`;
+        
+        const { error: saveError } = await supabase.from("recent_settings").insert([{
+          name: settingName,
+          resume_data: JSON.parse(JSON.stringify(parsedResume)),
+          jobs_data: JSON.parse(JSON.stringify(jobs)),
+          document_type: documentType,
+          style_name: documentType === "both" ? "Resume + Cover Letter" : documentType === "resume" ? "Resume Only" : "Cover Letter Only",
+        }]);
+
+        if (saveError) {
+          console.error("Error saving settings:", saveError);
+        } else {
+          setSettingsRefreshTrigger(prev => prev + 1);
         }
       }
 
@@ -187,6 +208,7 @@ export function ResumeBuilder() {
             
             {/* Recent Settings */}
             <RecentSettings 
+              refreshTrigger={settingsRefreshTrigger}
               onLoadSettings={({ resumeData, jobs: loadedJobs, documentType: loadedDocType }) => {
                 if (resumeData) setParsedResume(resumeData);
                 if (loadedJobs.length > 0) setJobs(loadedJobs);
