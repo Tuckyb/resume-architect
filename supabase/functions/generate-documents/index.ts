@@ -67,15 +67,15 @@ interface RequestData {
   styledCoverLetterText?: string | null;
 }
 
-// Generate document content using Lovable AI
-async function generateWithLovableAI(
+// Generate document content using Claude
+async function generateWithClaude(
   resume: ParsedResumeData,
   job: JobTarget,
   docType: "resume" | "cover-letter",
-  exampleText?: string | null,
-  apiKey?: string
+  exampleText: string | null | undefined,
+  apiKey: string
 ): Promise<string> {
-  console.log(`Generating ${docType} content with Lovable AI...`);
+  console.log(`Generating ${docType} content with Claude...`);
 
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
@@ -137,23 +137,10 @@ EXAMPLE ${docType.toUpperCase()} TO REFERENCE (for style and format guidance):
 ${exampleText}
 ` : "";
 
-  let systemPrompt: string;
-  let userPrompt: string;
+  let prompt: string;
 
   if (docType === "resume") {
-    systemPrompt = `You are a Professional Resume Architect. You create highly targeted, ATS-optimized resumes that showcase candidates' qualifications in the best light for specific job opportunities.
-
-Your resumes:
-- Are tailored specifically to each job description
-- Use keywords and terminology from the job posting
-- Quantify achievements where possible
-- Highlight relevant experience and skills prominently
-- Follow a clean, professional format
-- Are concise but comprehensive
-
-Output ONLY the resume content in plain text format with clear section headers. Do not include any HTML or markdown formatting.`;
-
-    userPrompt = `Create a professional resume for this candidate, tailored specifically for the target job.
+    prompt = `You are a Professional Resume Architect. Create a highly targeted, ATS-optimized resume that showcases this candidate's qualifications for the specific job opportunity.
 
 ${candidateInfo}
 
@@ -173,21 +160,9 @@ Generate a complete, professional resume that:
 4. Presents work experience with strong action verbs and quantified achievements
 5. Is organized with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
 
-Output the resume content in plain text with clear section headers.`;
+Output ONLY the resume content in plain text with clear section headers. No HTML or markdown.`;
   } else {
-    systemPrompt = `You are a Professional Cover Letter Craftsman. You create compelling, personalized cover letters that connect candidates with their target roles.
-
-Your cover letters:
-- Open with an engaging hook that captures attention
-- Demonstrate knowledge of the company and role
-- Connect the candidate's experience to the job requirements
-- Show genuine enthusiasm and cultural fit
-- Have a confident, professional tone
-- Include a clear call to action
-
-Output ONLY the cover letter content in plain text format. Do not include any HTML or markdown formatting.`;
-
-    userPrompt = `Create a compelling cover letter for this candidate applying to the target job.
+    prompt = `You are a Professional Cover Letter Craftsman. Create a compelling, personalized cover letter that connects this candidate with their target role.
 
 ${candidateInfo}
 
@@ -214,42 +189,34 @@ ${personalInfo?.address || ""}
 ${personalInfo?.phone || ""}
 ${personalInfo?.email || ""}
 
-Output the cover letter content in plain text format.`;
+Output ONLY the cover letter content in plain text format. No HTML or markdown.`;
   }
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      messages: [{ role: "user", content: prompt }],
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`Lovable AI error for ${docType}:`, response.status, errorText);
-    
-    if (response.status === 429) {
-      throw new Error("Rate limit exceeded. Please wait a moment and try again.");
-    }
-    if (response.status === 402) {
-      throw new Error("AI credits exhausted. Please add credits to continue.");
-    }
-    throw new Error(`AI generation error: ${response.status}`);
+    console.error(`Claude API error for ${docType}:`, response.status, errorText);
+    throw new Error(`Claude API error: ${response.status}`);
   }
 
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
+  const content = data.content[0].text;
 
   if (!content) {
-    throw new Error(`No content received from AI for ${docType}`);
+    throw new Error(`No content received from Claude for ${docType}`);
   }
 
   console.log(`${docType} content generated successfully (${content.length} chars)`);
@@ -688,12 +655,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!lovableApiKey) {
-      throw new Error("LOVABLE_API_KEY not configured");
-    }
     if (!anthropicApiKey) {
       throw new Error("ANTHROPIC_API_KEY not configured");
     }
@@ -720,15 +683,15 @@ Deno.serve(async (req) => {
 
     const documents: Array<{ type: string; rawContent: string; htmlContent: string }> = [];
 
-    // Generate Resume using Lovable AI
+    // Generate Resume using Claude
     if (documentType === "resume" || documentType === "both") {
-      console.log("Generating resume content with Lovable AI...");
-      const rawResume = await generateWithLovableAI(
+      console.log("Generating resume content with Claude...");
+      const rawResume = await generateWithClaude(
         parsedResumeData, 
         jobTarget, 
         "resume", 
         exampleResumeText,
-        lovableApiKey
+        anthropicApiKey
       );
       
       console.log("Resume content generated, formatting with Claude...");
@@ -741,15 +704,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate Cover Letter using Lovable AI
+    // Generate Cover Letter using Claude
     if (documentType === "cover-letter" || documentType === "both") {
-      console.log("Generating cover letter content with Lovable AI...");
-      const rawCoverLetter = await generateWithLovableAI(
+      console.log("Generating cover letter content with Claude...");
+      const rawCoverLetter = await generateWithClaude(
         parsedResumeData, 
         jobTarget, 
         "cover-letter", 
         exampleCoverLetterText,
-        lovableApiKey
+        anthropicApiKey
       );
       
       console.log("Cover letter content generated, formatting with Claude...");
