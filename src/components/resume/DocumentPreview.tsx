@@ -41,7 +41,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   if (isLoading) {
     return (
-<Card className="p-8 flex flex-col items-center justify-center h-[600px]">
+<Card className="p-8 flex flex-col items-center justify-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Generating documents...</p>
       </Card>
@@ -50,7 +50,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   if (documents.length === 0) {
     return (
-<Card className="p-8 flex flex-col items-center justify-center h-[600px] text-center">
+<Card className="p-8 flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
         <FileText className="h-12 w-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Upload resume, select jobs, and generate.</p>
       </Card>
@@ -60,7 +60,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
   const jobIds = Object.keys(groupedDocs);
 
   return (
-    <Card className="p-4 h-[600px] flex flex-col overflow-hidden">
+    <Card className="p-4 h-[calc(100vh-200px)] flex flex-col overflow-hidden">
       <Tabs defaultValue={jobIds[0]} className="flex flex-col flex-1">
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
           {jobIds.map((jobId) => (
