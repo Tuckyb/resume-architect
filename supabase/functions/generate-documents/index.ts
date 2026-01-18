@@ -67,7 +67,13 @@ interface RequestData {
   styledCoverLetterText?: string | null;
 }
 
-function buildResumePrompt(resume: ParsedResumeData, job: JobTarget, exampleText?: string | null): string {
+// Build the payload to send to your custom GPT webhooks
+function buildWebhookPayload(
+  resume: ParsedResumeData, 
+  job: JobTarget, 
+  docType: "resume" | "cover-letter",
+  exampleText?: string | null
+): Record<string, unknown> {
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
   const skillsText = skills?.map(s => `${s.category}: ${s.items.join(", ")}`).join("\n") || "";
@@ -76,212 +82,88 @@ function buildResumePrompt(resume: ParsedResumeData, job: JobTarget, exampleText
     `- ${ref.name} | ${ref.title} | ${ref.contact}`
   ).join("\n") || "";
 
-  const exampleSection = exampleText ? `
-=== EXAMPLE RESUME FORMAT (FOLLOW THIS STYLE) ===
-Here is an example resume showing the desired formatting and style. Match this style closely:
-
-${exampleText}
-
-=== END OF EXAMPLE ===
-` : "";
-
-  return `Create a professional resume tailored for the ${job.position} position at ${job.companyName}.
-
-CRITICAL INSTRUCTION: You MUST use the EXACT information provided below. DO NOT use placeholders like [Your Name] or [Your Email]. Use the actual values given.
-${exampleSection}
-=== CANDIDATE PERSONAL INFORMATION (USE EXACTLY AS PROVIDED) ===
-Full Name: ${personalInfo?.fullName || ""}
-Email: ${personalInfo?.email || ""}
-Phone: ${personalInfo?.phone || ""}
-Address: ${personalInfo?.address || ""}
-LinkedIn URL: ${personalInfo?.linkedIn || ""}
-Portfolio URL: ${personalInfo?.portfolio || ""}
-
-=== WORK EXPERIENCE (USE EXACTLY AS PROVIDED) ===
-${workExperience?.map(exp => `
-**${exp.title}** at **${exp.company}** (${exp.period})
-${exp.responsibilities.map(r => `• ${r}`).join("\n")}
-`).join("\n") || "No work experience provided"}
-
-=== EDUCATION (USE EXACTLY AS PROVIDED) ===
-${education?.map(edu => `
-**${edu.degree}** - ${edu.institution} (${edu.period})
-${edu.achievements?.length ? edu.achievements.map(a => `• ${a}`).join("\n") : ""}
-`).join("\n") || "No education provided"}
-
-=== SKILLS ===
-${skillsText || "No skills provided"}
-
-=== CERTIFICATIONS ===
-${certifications?.join(", ") || "No certifications provided"}
-
-=== KEY ACHIEVEMENTS ===
-${achievements?.map(a => `• ${a}`).join("\n") || "No achievements provided"}
-
-=== REFERENCES ===
-${referencesText || "Available upon request"}
-
-=== TARGET JOB ===
-Company: ${job.companyName}
-Position: ${job.position}
-Location: ${job.location || "Not specified"}
-Work Type: ${job.workType || "Not specified"}
-Job Description: ${job.jobDescription}
-
-=== OUTPUT REQUIREMENTS ===
-1. Start with a HEADER containing the candidate's actual name, address, phone, email, and profile links
-2. Write a compelling PROFESSIONAL SUMMARY tailored to this specific role
-3. Include CORE COMPETENCIES organized in a 2x2 grid format
-4. List all PROFESSIONAL EXPERIENCE with bullet points for responsibilities
-5. Include EDUCATION with achievements
-6. List CERTIFICATIONS
-7. Include KEY ACHIEVEMENTS
-8. Include REFERENCES section with actual names, titles, and contact info
-
-IMPORTANT: 
-- Use the candidate's ACTUAL NAME "${personalInfo?.fullName || ""}" in the header - NOT "[Your Name]"
-- Use the ACTUAL EMAIL "${personalInfo?.email || ""}" - NOT "[Your Email]"
-- Use the ACTUAL PHONE "${personalInfo?.phone || ""}" - NOT "[Your Phone]"
-- Use the ACTUAL ADDRESS "${personalInfo?.address || ""}" - NOT "[Your Address]"
-- LinkedIn and Portfolio should be labeled links, not just URLs
-
-Format the output as clean, structured text with clear section headers.`;
-}
-
-function buildCoverLetterPrompt(resume: ParsedResumeData, job: JobTarget, exampleText?: string | null): string {
-  const { personalInfo, workExperience, achievements } = resume;
-
   const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  const exampleSection = exampleText ? `
-=== EXAMPLE COVER LETTER FORMAT (FOLLOW THIS STYLE) ===
-Here is an example cover letter showing the desired formatting and style. Match this style closely:
-
-${exampleText}
-
-=== END OF EXAMPLE ===
-` : "";
-
-  return `Write a compelling cover letter for the ${job.position} position at ${job.companyName}.
-
-CRITICAL INSTRUCTION: You MUST use the EXACT candidate information provided below. DO NOT use placeholders like [Your Name] or [Your Email]. Use the actual values given.
-${exampleSection}
-=== SENDER INFORMATION (USE EXACTLY AS PROVIDED) ===
-Full Name: ${personalInfo?.fullName || ""}
-Email: ${personalInfo?.email || ""}
-Phone: ${personalInfo?.phone || ""}
-Address: ${personalInfo?.address || ""}
-LinkedIn URL: ${personalInfo?.linkedIn || ""}
-Portfolio URL: ${personalInfo?.portfolio || ""}
-Today's Date: ${today}
-
-=== KEY EXPERIENCE ===
-${workExperience?.slice(0, 3).map(exp => `
-**${exp.title}** at **${exp.company}**
-${exp.responsibilities.slice(0, 3).map(r => `• ${r}`).join("\n")}
-`).join("\n") || "No experience provided"}
-
-=== KEY ACHIEVEMENTS ===
-${achievements?.slice(0, 5).map(a => `• ${a}`).join("\n") || "No achievements provided"}
-
-=== TARGET JOB ===
-Company: ${job.companyName}
-Position: ${job.position}
-Location: ${job.location || ""}
-Job Description: ${job.jobDescription}
-
-=== OUTPUT REQUIREMENTS ===
-1. START with sender info block (right-aligned):
-   - ${personalInfo?.fullName || ""}
-   - ${personalInfo?.address || ""}
-   - ${personalInfo?.phone || ""}
-   - ${personalInfo?.email || ""}
-   - LinkedIn Profile | Portfolio (as labeled links)
-
-2. Date: ${today}
-
-3. Recipient info:
-   - "Dear Hiring Team at ${job.companyName},"
-
-4. Body: 3-4 paragraphs that:
-   - Open with a compelling hook showing genuine interest
-   - Connect specific achievements to job requirements
-   - Show understanding of the company
-   - End with a confident call to action
-
-5. END with:
-   - "Warm regards,"
-   - ${personalInfo?.fullName || ""}
-
-IMPORTANT:
-- Use the candidate's ACTUAL NAME "${personalInfo?.fullName || ""}" - NOT "[Your Name]"
-- Use the ACTUAL EMAIL "${personalInfo?.email || ""}" - NOT "[Your Email]"  
-- Use the ACTUAL PHONE "${personalInfo?.phone || ""}" - NOT "[Your Phone]"
-- Use the ACTUAL ADDRESS "${personalInfo?.address || ""}" - NOT "[Your Address]"
-- Do NOT include "[City, State, Zip]" placeholders
-- Make the letter 300-400 words, unique and memorable`;
+  return {
+    documentType: docType,
+    candidateInfo: {
+      fullName: personalInfo?.fullName || "",
+      email: personalInfo?.email || "",
+      phone: personalInfo?.phone || "",
+      address: personalInfo?.address || "",
+      linkedIn: personalInfo?.linkedIn || "",
+      portfolio: personalInfo?.portfolio || "",
+    },
+    workExperience: workExperience?.map(exp => ({
+      title: exp.title,
+      company: exp.company,
+      period: exp.period,
+      responsibilities: exp.responsibilities,
+    })) || [],
+    education: education?.map(edu => ({
+      degree: edu.degree,
+      institution: edu.institution,
+      period: edu.period,
+      achievements: edu.achievements || [],
+    })) || [],
+    skills: skillsText,
+    certifications: certifications || [],
+    achievements: achievements || [],
+    references: referencesText,
+    targetJob: {
+      companyName: job.companyName,
+      position: job.position,
+      location: job.location || "",
+      workType: job.workType || "",
+      jobDescription: job.jobDescription,
+    },
+    exampleDocument: exampleText || null,
+    todayDate: today,
+    rawResumeText: resume.rawText,
+  };
 }
 
-async function generateWithOpenAI(prompt: string, apiKey: string, personalInfo?: ParsedResumeData['personalInfo']): Promise<string> {
-  console.log("Calling OpenAI API...");
-  console.log("Personal info being used:", JSON.stringify(personalInfo));
+// Send data to your custom GPT webhook and get the response
+async function sendToGptWebhook(
+  webhookUrl: string, 
+  payload: Record<string, unknown>,
+  docType: string
+): Promise<string> {
+  console.log(`Sending ${docType} data to GPT webhook: ${webhookUrl.substring(0, 50)}...`);
+  console.log("Payload keys:", Object.keys(payload));
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch(webhookUrl, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert resume writer and career coach. You create professional, tailored resumes and cover letters.
-
-CRITICAL RULE: You MUST NEVER use placeholder text like [Your Name], [Your Email], [Your Phone], [Your Address], [City, State, Zip], etc.
-Always use the EXACT information provided in the user's prompt. If any information is missing, simply omit that field - DO NOT use brackets or placeholder text.
-
-The candidate's information is:
-- Name: ${personalInfo?.fullName || ""}
-- Email: ${personalInfo?.email || ""}
-- Phone: ${personalInfo?.phone || ""}
-- Address: ${personalInfo?.address || ""}
-- LinkedIn: ${personalInfo?.linkedIn || ""}
-- Portfolio: ${personalInfo?.portfolio || ""}`,
-        },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 2000,
-      temperature: 0.7,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("OpenAI API error:", response.status, errorText);
-    throw new Error(`OpenAI API error: ${response.status}`);
+    console.error(`GPT webhook error for ${docType}:`, response.status, errorText);
+    throw new Error(`GPT webhook error: ${response.status} - ${errorText}`);
   }
 
-  const data = await response.json();
-  let content = data.choices[0].message.content;
+  const responseData = await response.json();
+  console.log(`${docType} GPT webhook response received`);
   
-  // Post-process to replace any remaining placeholders with actual values
-  if (personalInfo) {
-    content = content.replace(/\[Your Name\]/gi, personalInfo.fullName || '');
-    content = content.replace(/\[Your Email\]/gi, personalInfo.email || '');
-    content = content.replace(/\[Your Phone\]/gi, personalInfo.phone || '');
-    content = content.replace(/\[Your Address\]/gi, personalInfo.address || '');
-    content = content.replace(/\[City,?\s*State,?\s*Zip\]/gi, '');
-    content = content.replace(/\[LinkedIn URL\]/gi, personalInfo.linkedIn || '');
-    content = content.replace(/\[Portfolio URL\]/gi, personalInfo.portfolio || '');
-  }
+  // The response should contain the generated content from your GPT
+  // Adjust this based on your actual webhook response structure
+  const content = responseData.content || responseData.text || responseData.message || responseData.output || JSON.stringify(responseData);
   
   return content;
 }
 
-async function formatWithClaude(content: string, docType: string, apiKey: string, personalInfo?: ParsedResumeData['personalInfo'], styledExampleText?: string | null): Promise<string> {
-  console.log("Calling Claude API for HTML formatting with resume-formatter skill...");
+async function formatWithClaude(
+  content: string, 
+  docType: string, 
+  apiKey: string, 
+  personalInfo?: ParsedResumeData['personalInfo'],
+  styledExampleText?: string | null
+): Promise<string> {
+  console.log("Calling Claude API for HTML formatting...");
   console.log("Personal info for formatting:", JSON.stringify(personalInfo));
   console.log("Styled example provided:", !!styledExampleText);
 
@@ -327,10 +209,6 @@ body {
 .contact-info a {
   color: #3182ce;
   text-decoration: none;
-}
-
-.contact-info a:hover {
-  text-decoration: underline;
 }
 
 /* Section Styles */
@@ -590,7 +468,7 @@ ${styledExampleText}
 === END OF STYLED EXAMPLE ===
 ` : "";
 
-  const resumePrompt = `You are a professional resume formatter using the resume-formatter skill.
+  const resumePrompt = `You are a professional resume formatter.
 
 Transform the following ${docType} content into a beautifully styled HTML document that is FULLY COMPATIBLE WITH MICROSOFT WORD.
 ${styledExampleSection}
@@ -737,12 +615,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    const resumeWebhookUrl = Deno.env.get("RESUME_WEBHOOK_URL");
+    const coverLetterWebhookUrl = Deno.env.get("COVERLETTER_WEBHOOK_URL");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
     const makeWebhookUrl = Deno.env.get("MAKE_WEBHOOK_URL");
 
-    if (!openaiApiKey) {
-      throw new Error("OPENAI_API_KEY not configured");
+    if (!resumeWebhookUrl) {
+      throw new Error("RESUME_WEBHOOK_URL not configured");
+    }
+    if (!coverLetterWebhookUrl) {
+      throw new Error("COVERLETTER_WEBHOOK_URL not configured");
     }
     if (!anthropicApiKey) {
       throw new Error("ANTHROPIC_API_KEY not configured");
@@ -762,6 +644,7 @@ Deno.serve(async (req) => {
     console.log(
       `Generating documents for: ${jobTarget.position} at ${jobTarget.companyName}`
     );
+    console.log(`Document type requested: ${documentType}`);
     console.log(`Example resume text provided: ${!!exampleResumeText}`);
     console.log(`Example cover letter text provided: ${!!exampleCoverLetterText}`);
     console.log(`Styled resume example provided: ${!!styledResumeText}`);
@@ -769,12 +652,13 @@ Deno.serve(async (req) => {
 
     const documents: Array<{ type: string; rawContent: string; htmlContent: string }> = [];
 
-    // Generate Resume
+    // Generate Resume - Send to YOUR GPT webhook
     if (documentType === "resume" || documentType === "both") {
-      console.log("Generating resume...");
-      const resumePrompt = buildResumePrompt(parsedResumeData, jobTarget, exampleResumeText);
-      const rawResume = await generateWithOpenAI(resumePrompt, openaiApiKey, parsedResumeData.personalInfo);
-      console.log("Resume content generated, formatting with Claude...");
+      console.log("Sending resume data to your GPT webhook...");
+      const resumePayload = buildWebhookPayload(parsedResumeData, jobTarget, "resume", exampleResumeText);
+      const rawResume = await sendToGptWebhook(resumeWebhookUrl, resumePayload, "resume");
+      
+      console.log("Resume content received from GPT, formatting with Claude...");
       const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo, styledResumeText);
 
       documents.push({
@@ -784,12 +668,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate Cover Letter
+    // Generate Cover Letter - Send to YOUR GPT webhook
     if (documentType === "cover-letter" || documentType === "both") {
-      console.log("Generating cover letter...");
-      const coverLetterPrompt = buildCoverLetterPrompt(parsedResumeData, jobTarget, exampleCoverLetterText);
-      const rawCoverLetter = await generateWithOpenAI(coverLetterPrompt, openaiApiKey, parsedResumeData.personalInfo);
-      console.log("Cover letter content generated, formatting with Claude...");
+      console.log("Sending cover letter data to your GPT webhook...");
+      const coverLetterPayload = buildWebhookPayload(parsedResumeData, jobTarget, "cover-letter", exampleCoverLetterText);
+      const rawCoverLetter = await sendToGptWebhook(coverLetterWebhookUrl, coverLetterPayload, "cover-letter");
+      
+      console.log("Cover letter content received from GPT, formatting with Claude...");
       const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo, styledCoverLetterText);
 
       documents.push({
