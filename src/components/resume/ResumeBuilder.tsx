@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -16,9 +17,8 @@ import { DocumentPreview } from "./DocumentPreview";
 
 import { RecentSettings } from "./RecentSettings";
 import { UploadExamples, ExampleTexts } from "./UploadExamples";
-import { Sparkles, AlertCircle } from "lucide-react";
+import { Sparkles, AlertCircle, FileText, Settings } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-
 
 export function ResumeBuilder() {
   const { toast } = useToast();
@@ -35,6 +35,7 @@ export function ResumeBuilder() {
     styledResumeText: null,
     styledCoverLetterText: null,
   });
+  const [activeTab, setActiveTab] = useState<string>("setup");
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
@@ -115,11 +116,13 @@ export function ResumeBuilder() {
           setSettingsRefreshTrigger(prev => prev + 1);
         }
       }
-
       toast({
         title: "Generation Complete!",
         description: `Generated documents for ${allDocs.length > 0 ? selectedJobs.length : 0} job(s).`,
       });
+      
+      // Switch to preview tab after successful generation
+      setActiveTab("preview");
     } catch (error) {
       console.error("Generation error:", error);
       toast({
@@ -145,97 +148,120 @@ export function ResumeBuilder() {
           </p>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Left Column - Inputs */}
-          <div className="space-y-6">
-            {/* PDF Upload */}
-            <PdfUploader onParsed={setParsedResume} parsedData={parsedResume} />
-
-            {/* Job List Upload */}
-            <JobListUploader jobs={jobs} onJobsChange={setJobs} />
-
-            {/* Document Type & Generate */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4">Document Type</h3>
-              <RadioGroup
-                value={documentType}
-                onValueChange={(value) =>
-                  setDocumentType(value as "resume" | "cover-letter" | "both")
-                }
-                className="flex flex-wrap gap-4 mb-6"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="resume" id="resume" />
-                  <Label htmlFor="resume">Resume Only</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="cover-letter" id="cover-letter" />
-                  <Label htmlFor="cover-letter">Cover Letter Only</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="both" id="both" />
-                  <Label htmlFor="both">Both</Label>
-                </div>
-              </RadioGroup>
-
-              {/* Validation Alerts */}
-              {!parsedResume?.rawText && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Please upload your resume PDF to continue.
-                  </AlertDescription>
-                </Alert>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+            <TabsTrigger value="setup" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Setup
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Preview & Download
+              {generatedDocs.length > 0 && (
+                <span className="ml-1 bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  {generatedDocs.length}
+                </span>
               )}
+            </TabsTrigger>
+          </TabsList>
 
-              {parsedResume?.rawText && selectedJobs.length === 0 && (
-                <Alert className="mb-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Select at least one job from the list above.
-                  </AlertDescription>
-                </Alert>
-              )}
+          {/* Setup Tab */}
+          <TabsContent value="setup" className="mt-0">
+            <div className="grid gap-8 lg:grid-cols-2">
+              {/* Left Column - Inputs */}
+              <div className="space-y-6">
+                {/* PDF Upload */}
+                <PdfUploader onParsed={setParsedResume} parsedData={parsedResume} />
 
-              <Button
-                onClick={handleGenerate}
-                disabled={isGenerating || !parsedResume?.rawText || selectedJobs.length === 0}
-                className="w-full"
-                size="lg"
-              >
-                <Sparkles className="mr-2 h-5 w-5" />
-                {isGenerating
-                  ? `Generating (${currentJobIndex + 1}/${selectedJobs.length})...`
-                  : `Generate for ${selectedJobs.length} Job${selectedJobs.length !== 1 ? "s" : ""}`}
-              </Button>
-            </Card>
-          </div>
+                {/* Job List Upload */}
+                <JobListUploader jobs={jobs} onJobsChange={setJobs} />
 
-          {/* Right Column - Settings & Preview */}
-          <div className="flex flex-col space-y-6">
-            {/* Upload Examples */}
-            <UploadExamples onExamplesChange={setExampleTexts} />
-            
-            {/* Recent Settings */}
-            <RecentSettings 
-              refreshTrigger={settingsRefreshTrigger}
-              onLoadSettings={({ resumeData, jobs: loadedJobs, documentType: loadedDocType }) => {
-                if (resumeData) setParsedResume(resumeData);
-                if (loadedJobs.length > 0) setJobs(loadedJobs);
-                setDocumentType(loadedDocType);
-              }} 
-            />
-            
-            <div>
-              <h2 className="text-xl font-semibold text-foreground mb-4">Generated Documents</h2>
+                {/* Document Type & Generate */}
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Document Type</h3>
+                  <RadioGroup
+                    value={documentType}
+                    onValueChange={(value) =>
+                      setDocumentType(value as "resume" | "cover-letter" | "both")
+                    }
+                    className="flex flex-wrap gap-4 mb-6"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="resume" id="resume" />
+                      <Label htmlFor="resume">Resume Only</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cover-letter" id="cover-letter" />
+                      <Label htmlFor="cover-letter">Cover Letter Only</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="both" id="both" />
+                      <Label htmlFor="both">Both</Label>
+                    </div>
+                  </RadioGroup>
+
+                  {/* Validation Alerts */}
+                  {!parsedResume?.rawText && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Please upload your resume PDF to continue.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {parsedResume?.rawText && selectedJobs.length === 0 && (
+                    <Alert className="mb-4">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Select at least one job from the list above.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !parsedResume?.rawText || selectedJobs.length === 0}
+                    className="w-full"
+                    size="lg"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    {isGenerating
+                      ? `Generating (${currentJobIndex + 1}/${selectedJobs.length})...`
+                      : `Generate for ${selectedJobs.length} Job${selectedJobs.length !== 1 ? "s" : ""}`}
+                  </Button>
+                </Card>
+              </div>
+
+              {/* Right Column - Settings */}
+              <div className="flex flex-col space-y-6">
+                {/* Upload Examples */}
+                <UploadExamples onExamplesChange={setExampleTexts} />
+                
+                {/* Recent Settings */}
+                <RecentSettings 
+                  refreshTrigger={settingsRefreshTrigger}
+                  onLoadSettings={({ resumeData, jobs: loadedJobs, documentType: loadedDocType }) => {
+                    if (resumeData) setParsedResume(resumeData);
+                    if (loadedJobs.length > 0) setJobs(loadedJobs);
+                    setDocumentType(loadedDocType);
+                  }} 
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Preview & Download Tab */}
+          <TabsContent value="preview" className="mt-0">
+            <div className="max-w-5xl mx-auto">
               <DocumentPreview 
                 documents={generatedDocs} 
                 isLoading={isGenerating} 
                 jobs={jobs}
               />
             </div>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
