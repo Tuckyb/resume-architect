@@ -67,13 +67,16 @@ interface RequestData {
   styledCoverLetterText?: string | null;
 }
 
-// Build the payload to send to your custom GPT webhooks
-function buildWebhookPayload(
-  resume: ParsedResumeData, 
-  job: JobTarget, 
+// Generate document content using Lovable AI
+async function generateWithLovableAI(
+  resume: ParsedResumeData,
+  job: JobTarget,
   docType: "resume" | "cover-letter",
-  exampleText?: string | null
-): Record<string, unknown> {
+  exampleText?: string | null,
+  apiKey?: string
+): Promise<string> {
+  console.log(`Generating ${docType} content with Lovable AI...`);
+
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
   const skillsText = skills?.map(s => `${s.category}: ${s.items.join(", ")}`).join("\n") || "";
@@ -84,109 +87,173 @@ function buildWebhookPayload(
 
   const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  return {
-    documentType: docType,
-    candidateInfo: {
-      fullName: personalInfo?.fullName || "",
-      email: personalInfo?.email || "",
-      phone: personalInfo?.phone || "",
-      address: personalInfo?.address || "",
-      linkedIn: personalInfo?.linkedIn || "",
-      portfolio: personalInfo?.portfolio || "",
-    },
-    workExperience: workExperience?.map(exp => ({
-      title: exp.title,
-      company: exp.company,
-      period: exp.period,
-      responsibilities: exp.responsibilities,
-    })) || [],
-    education: education?.map(edu => ({
-      degree: edu.degree,
-      institution: edu.institution,
-      period: edu.period,
-      achievements: edu.achievements || [],
-    })) || [],
-    skills: skillsText,
-    certifications: certifications || [],
-    achievements: achievements || [],
-    references: referencesText,
-    targetJob: {
-      companyName: job.companyName,
-      position: job.position,
-      location: job.location || "",
-      workType: job.workType || "",
-      jobDescription: job.jobDescription,
-    },
-    exampleDocument: exampleText || null,
-    todayDate: today,
-    rawResumeText: resume.rawText,
-  };
-}
+  const candidateInfo = `
+CANDIDATE INFORMATION:
+- Full Name: ${personalInfo?.fullName || "Not provided"}
+- Email: ${personalInfo?.email || "Not provided"}
+- Phone: ${personalInfo?.phone || "Not provided"}
+- Address: ${personalInfo?.address || "Not provided"}
+- LinkedIn: ${personalInfo?.linkedIn || "Not provided"}
+- Portfolio: ${personalInfo?.portfolio || "Not provided"}
 
-// Send data to your custom GPT webhook and get the response
-async function sendToGptWebhook(
-  webhookUrl: string, 
-  payload: Record<string, unknown>,
-  docType: string
-): Promise<string> {
-  console.log(`Sending ${docType} data to GPT webhook: ${webhookUrl.substring(0, 50)}...`);
-  console.log("Payload keys:", Object.keys(payload));
+WORK EXPERIENCE:
+${workExperience?.map(exp => `
+${exp.title} at ${exp.company} (${exp.period})
+${exp.responsibilities.map(r => `• ${r}`).join("\n")}
+`).join("\n") || "Not provided"}
 
-  const response = await fetch(webhookUrl, {
+EDUCATION:
+${education?.map(edu => `
+${edu.degree} - ${edu.institution} (${edu.period})
+${edu.achievements?.map(a => `• ${a}`).join("\n") || ""}
+`).join("\n") || "Not provided"}
+
+SKILLS:
+${skillsText || "Not provided"}
+
+CERTIFICATIONS:
+${certifications?.join(", ") || "Not provided"}
+
+ACHIEVEMENTS:
+${achievements?.map(a => `• ${a}`).join("\n") || "Not provided"}
+
+REFERENCES:
+${referencesText || "Not provided"}
+`;
+
+  const jobInfo = `
+TARGET JOB:
+- Company: ${job.companyName}
+- Position: ${job.position}
+- Location: ${job.location || "Not specified"}
+- Work Type: ${job.workType || "Not specified"}
+
+JOB DESCRIPTION:
+${job.jobDescription}
+`;
+
+  const exampleSection = exampleText ? `
+EXAMPLE ${docType.toUpperCase()} TO REFERENCE (for style and format guidance):
+${exampleText}
+` : "";
+
+  let systemPrompt: string;
+  let userPrompt: string;
+
+  if (docType === "resume") {
+    systemPrompt = `You are a Professional Resume Architect. You create highly targeted, ATS-optimized resumes that showcase candidates' qualifications in the best light for specific job opportunities.
+
+Your resumes:
+- Are tailored specifically to each job description
+- Use keywords and terminology from the job posting
+- Quantify achievements where possible
+- Highlight relevant experience and skills prominently
+- Follow a clean, professional format
+- Are concise but comprehensive
+
+Output ONLY the resume content in plain text format with clear section headers. Do not include any HTML or markdown formatting.`;
+
+    userPrompt = `Create a professional resume for this candidate, tailored specifically for the target job.
+
+${candidateInfo}
+
+${jobInfo}
+
+${exampleSection}
+
+Today's date: ${today}
+
+RAW RESUME TEXT (for additional context):
+${resume.rawText}
+
+Generate a complete, professional resume that:
+1. Has a strong professional summary tailored to the ${job.position} role at ${job.companyName}
+2. Highlights relevant skills and experience that match the job description
+3. Uses industry keywords from the job posting
+4. Presents work experience with strong action verbs and quantified achievements
+5. Is organized with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
+
+Output the resume content in plain text with clear section headers.`;
+  } else {
+    systemPrompt = `You are a Professional Cover Letter Craftsman. You create compelling, personalized cover letters that connect candidates with their target roles.
+
+Your cover letters:
+- Open with an engaging hook that captures attention
+- Demonstrate knowledge of the company and role
+- Connect the candidate's experience to the job requirements
+- Show genuine enthusiasm and cultural fit
+- Have a confident, professional tone
+- Include a clear call to action
+
+Output ONLY the cover letter content in plain text format. Do not include any HTML or markdown formatting.`;
+
+    userPrompt = `Create a compelling cover letter for this candidate applying to the target job.
+
+${candidateInfo}
+
+${jobInfo}
+
+${exampleSection}
+
+Today's date: ${today}
+
+RAW RESUME TEXT (for additional context):
+${resume.rawText}
+
+Generate a professional cover letter that:
+1. Opens with an engaging statement about why you're excited about ${job.position} at ${job.companyName}
+2. Demonstrates understanding of the company and role
+3. Connects 2-3 key experiences/achievements directly to the job requirements
+4. Shows enthusiasm and cultural fit
+5. Closes with confidence and a clear call to action
+6. Is formatted as a proper business letter with today's date
+
+The letter should be addressed from:
+${personalInfo?.fullName || "Candidate"}
+${personalInfo?.address || ""}
+${personalInfo?.phone || ""}
+${personalInfo?.email || ""}
+
+Output the cover letter content in plain text format.`;
+  }
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
+      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+    }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`GPT webhook error for ${docType}:`, response.status, errorText);
-    throw new Error(`GPT webhook error: ${response.status} - ${errorText}`);
+    console.error(`Lovable AI error for ${docType}:`, response.status, errorText);
+    
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+    }
+    if (response.status === 402) {
+      throw new Error("AI credits exhausted. Please add credits to continue.");
+    }
+    throw new Error(`AI generation error: ${response.status}`);
   }
 
-  // Get the raw response text first
-  const responseText = await response.text();
-  console.log(`${docType} GPT webhook raw response (first 200 chars):`, responseText.substring(0, 200));
-  
-  // Check if response is just "Accepted" (async webhook)
-  if (responseText.trim() === "Accepted" || responseText.trim() === "") {
-    throw new Error(`The ${docType} webhook returned "Accepted" which means it's processing asynchronously. Your Make.com scenario needs to be configured to wait and return the GPT response synchronously, or you need to set up a callback URL.`);
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error(`No content received from AI for ${docType}`);
   }
 
-  // Try to parse as JSON
-  try {
-    const responseData = JSON.parse(responseText);
-    console.log(`${docType} GPT webhook JSON response received, keys:`, Object.keys(responseData));
-    
-    // The response should contain the generated content from your GPT
-    // Check various possible field names
-    const content = responseData.content || 
-                    responseData.text || 
-                    responseData.message || 
-                    responseData.output || 
-                    responseData.result ||
-                    responseData.response ||
-                    responseData.data?.content ||
-                    responseData.data?.text ||
-                    responseData.data?.message ||
-                    responseData.choices?.[0]?.message?.content;
-    
-    if (!content) {
-      console.log("Full response data:", JSON.stringify(responseData));
-      throw new Error(`Could not find content in ${docType} webhook response. Response keys: ${Object.keys(responseData).join(", ")}`);
-    }
-    
-    return content;
-  } catch (parseError) {
-    // If it's not JSON, maybe it's the raw content text
-    if (responseText.length > 100) {
-      console.log(`${docType} response is plain text (not JSON), using as content`);
-      return responseText;
-    }
-    throw new Error(`Failed to parse ${docType} webhook response: ${parseError instanceof Error ? parseError.message : "Unknown error"}. Raw response: ${responseText.substring(0, 200)}`);
-  }
+  console.log(`${docType} content generated successfully (${content.length} chars)`);
+  return content;
 }
 
 async function formatWithClaude(
@@ -615,49 +682,17 @@ Return ONLY the complete HTML code, nothing else.`;
   return htmlContent.trim();
 }
 
-async function sendToMakeWebhook(documents: unknown[], webhookUrl: string): Promise<void> {
-  if (!webhookUrl) {
-    console.log("No Make.com webhook URL configured, skipping...");
-    return;
-  }
-
-  console.log("Sending to Make.com webhook...");
-
-  try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ documents }),
-    });
-
-    if (!response.ok) {
-      console.error("Make.com webhook error:", response.status);
-    } else {
-      console.log("Successfully sent to Make.com");
-    }
-  } catch (error) {
-    console.error("Make.com webhook error:", error);
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const resumeWebhookUrl = Deno.env.get("RESUME_WEBHOOK_URL");
-    const coverLetterWebhookUrl = Deno.env.get("COVERLETTER_WEBHOOK_URL");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
-    const makeWebhookUrl = Deno.env.get("MAKE_WEBHOOK_URL");
 
-    if (!resumeWebhookUrl) {
-      throw new Error("RESUME_WEBHOOK_URL not configured");
-    }
-    if (!coverLetterWebhookUrl) {
-      throw new Error("COVERLETTER_WEBHOOK_URL not configured");
+    if (!lovableApiKey) {
+      throw new Error("LOVABLE_API_KEY not configured");
     }
     if (!anthropicApiKey) {
       throw new Error("ANTHROPIC_API_KEY not configured");
@@ -685,13 +720,18 @@ Deno.serve(async (req) => {
 
     const documents: Array<{ type: string; rawContent: string; htmlContent: string }> = [];
 
-    // Generate Resume - Send to YOUR GPT webhook
+    // Generate Resume using Lovable AI
     if (documentType === "resume" || documentType === "both") {
-      console.log("Sending resume data to your GPT webhook...");
-      const resumePayload = buildWebhookPayload(parsedResumeData, jobTarget, "resume", exampleResumeText);
-      const rawResume = await sendToGptWebhook(resumeWebhookUrl, resumePayload, "resume");
+      console.log("Generating resume content with Lovable AI...");
+      const rawResume = await generateWithLovableAI(
+        parsedResumeData, 
+        jobTarget, 
+        "resume", 
+        exampleResumeText,
+        lovableApiKey
+      );
       
-      console.log("Resume content received from GPT, formatting with Claude...");
+      console.log("Resume content generated, formatting with Claude...");
       const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo, styledResumeText);
 
       documents.push({
@@ -701,13 +741,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Generate Cover Letter - Send to YOUR GPT webhook
+    // Generate Cover Letter using Lovable AI
     if (documentType === "cover-letter" || documentType === "both") {
-      console.log("Sending cover letter data to your GPT webhook...");
-      const coverLetterPayload = buildWebhookPayload(parsedResumeData, jobTarget, "cover-letter", exampleCoverLetterText);
-      const rawCoverLetter = await sendToGptWebhook(coverLetterWebhookUrl, coverLetterPayload, "cover-letter");
+      console.log("Generating cover letter content with Lovable AI...");
+      const rawCoverLetter = await generateWithLovableAI(
+        parsedResumeData, 
+        jobTarget, 
+        "cover-letter", 
+        exampleCoverLetterText,
+        lovableApiKey
+      );
       
-      console.log("Cover letter content received from GPT, formatting with Claude...");
+      console.log("Cover letter content generated, formatting with Claude...");
       const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo, styledCoverLetterText);
 
       documents.push({
@@ -716,9 +761,6 @@ Deno.serve(async (req) => {
         htmlContent: htmlCoverLetter,
       });
     }
-
-    // Send to Make.com webhook if configured
-    await sendToMakeWebhook(documents, makeWebhookUrl || "");
 
     console.log(`Generated ${documents.length} document(s) successfully`);
 
