@@ -146,14 +146,47 @@ async function sendToGptWebhook(
     throw new Error(`GPT webhook error: ${response.status} - ${errorText}`);
   }
 
-  const responseData = await response.json();
-  console.log(`${docType} GPT webhook response received`);
+  // Get the raw response text first
+  const responseText = await response.text();
+  console.log(`${docType} GPT webhook raw response (first 200 chars):`, responseText.substring(0, 200));
   
-  // The response should contain the generated content from your GPT
-  // Adjust this based on your actual webhook response structure
-  const content = responseData.content || responseData.text || responseData.message || responseData.output || JSON.stringify(responseData);
-  
-  return content;
+  // Check if response is just "Accepted" (async webhook)
+  if (responseText.trim() === "Accepted" || responseText.trim() === "") {
+    throw new Error(`The ${docType} webhook returned "Accepted" which means it's processing asynchronously. Your Make.com scenario needs to be configured to wait and return the GPT response synchronously, or you need to set up a callback URL.`);
+  }
+
+  // Try to parse as JSON
+  try {
+    const responseData = JSON.parse(responseText);
+    console.log(`${docType} GPT webhook JSON response received, keys:`, Object.keys(responseData));
+    
+    // The response should contain the generated content from your GPT
+    // Check various possible field names
+    const content = responseData.content || 
+                    responseData.text || 
+                    responseData.message || 
+                    responseData.output || 
+                    responseData.result ||
+                    responseData.response ||
+                    responseData.data?.content ||
+                    responseData.data?.text ||
+                    responseData.data?.message ||
+                    responseData.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      console.log("Full response data:", JSON.stringify(responseData));
+      throw new Error(`Could not find content in ${docType} webhook response. Response keys: ${Object.keys(responseData).join(", ")}`);
+    }
+    
+    return content;
+  } catch (parseError) {
+    // If it's not JSON, maybe it's the raw content text
+    if (responseText.length > 100) {
+      console.log(`${docType} response is plain text (not JSON), using as content`);
+      return responseText;
+    }
+    throw new Error(`Failed to parse ${docType} webhook response: ${parseError instanceof Error ? parseError.message : "Unknown error"}. Raw response: ${responseText.substring(0, 200)}`);
+  }
 }
 
 async function formatWithClaude(
