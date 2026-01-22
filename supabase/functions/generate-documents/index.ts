@@ -234,9 +234,9 @@ async function formatWithClaude(
   console.log("Personal info for formatting:", JSON.stringify(personalInfo));
   console.log("Styled example provided:", !!styledExampleText);
 
-  // Word-compatible CSS - NO CSS variables, NO flexbox, use inline colors and tables
-  const cssFramework = `
-/* Word-Compatible Professional Resume/Cover Letter CSS */
+  // Word-compatible Resume CSS Framework
+  const resumeCssFramework = `
+/* Word-Compatible Professional Resume CSS */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -304,7 +304,7 @@ body {
   border-left: 4px solid #3182ce;
 }
 
-/* Competencies Table - Word compatible */
+/* Competencies Table */
 .competencies-table {
   width: 100%;
   border-collapse: collapse;
@@ -330,7 +330,7 @@ body {
   color: #4a5568;
 }
 
-/* Job Entry Styles - Using tables instead of flexbox for Word */
+/* Job Entry Styles */
 .job-entry {
   margin-bottom: 15px;
   page-break-inside: avoid;
@@ -448,48 +448,6 @@ body {
   text-decoration: none;
 }
 
-/* Cover Letter Specific */
-.letter-header {
-  margin-bottom: 30px;
-}
-
-.sender-info {
-  text-align: right;
-  margin-bottom: 20px;
-}
-
-.sender-info a {
-  color: #3182ce;
-  text-decoration: none;
-}
-
-.date {
-  margin-bottom: 20px;
-}
-
-.recipient-info {
-  margin-bottom: 20px;
-}
-
-.subject-line {
-  font-weight: 600;
-  margin-bottom: 20px;
-}
-
-.letter-body p {
-  margin-bottom: 15px;
-  text-align: justify;
-}
-
-.signature {
-  margin-top: 30px;
-}
-
-.signature-name {
-  font-weight: 600;
-  margin-top: 40px;
-}
-
 /* Print Styles */
 @media print {
   body { padding: 0; }
@@ -502,6 +460,286 @@ body {
   margin: 0.5in;
 }
 `;
+
+  // Professional Cover Letter CSS Framework
+  const coverLetterCssFramework = `
+/* Professional Cover Letter CSS - Word Compatible */
+@page {
+  size: 8.5in 11in;
+  margin: 0.75in;
+}
+
+* { 
+  margin: 0; 
+  padding: 0; 
+  box-sizing: border-box; 
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+} 
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body { 
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+  line-height: 1.6; 
+  color: #333; 
+  width: 100%;
+  max-width: 7in;
+  margin: 0 auto; 
+  padding: 0;
+  background: #fff;
+  font-size: 16px;
+} 
+
+/* Header for Letter (Sender Information) */
+.letter-header { 
+  text-align: left; 
+  padding-bottom: 20px; 
+  margin-bottom: 25px;
+  page-break-inside: avoid;
+} 
+
+.sender-name { 
+  font-size: 20px; 
+  font-weight: 700; 
+  color: #2c3e50; 
+  margin-bottom: 3px;
+  letter-spacing: 0.5px;
+} 
+
+.sender-contact { 
+  font-size: 13px; 
+  color: #555; 
+  line-height: 1.4; 
+  margin-bottom: 15px;
+} 
+
+.sender-contact a { 
+  color: #3498db; 
+  text-decoration: none; 
+}
+
+.sender-contact a:hover {
+  text-decoration: underline;
+}
+
+/* Date */
+.date { 
+  font-size: 14px; 
+  color: #555; 
+  margin-bottom: 25px;
+  page-break-after: avoid;
+}
+
+/* Recipient Information */
+.recipient { 
+  font-size: 14px; 
+  color: #555; 
+  margin-bottom: 25px; 
+  line-height: 1.5;
+  page-break-after: avoid;
+}
+
+.recipient-name {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 2px;
+}
+
+.recipient-title {
+  color: #7f8c8d;
+  margin-bottom: 2px;
+}
+
+.recipient-company {
+  color: #7f8c8d;
+  margin-bottom: 2px;
+}
+
+.recipient-address {
+  color: #7f8c8d;
+}
+
+/* Salutation */
+.salutation { 
+  font-size: 15px; 
+  color: #444; 
+  margin-bottom: 18px;
+  page-break-after: avoid;
+}
+
+/* Letter Subject Line */
+.subject { 
+  font-weight: 700; 
+  font-size: 16px; 
+  color: #2c3e50; 
+  margin-bottom: 20px; 
+  border-bottom: 2px solid #3498db; 
+  padding-bottom: 8px;
+  page-break-after: avoid;
+} 
+
+/* Letter Body */
+.letter-body { 
+  font-size: 15px; 
+  line-height: 1.7; 
+  color: #444;
+} 
+
+.letter-body p { 
+  margin-bottom: 18px; 
+  text-align: justify;
+  orphans: 2;
+  widows: 2;
+} 
+
+/* Paragraph Emphasis */
+.opening-paragraph {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.highlight { 
+  color: #3498db; 
+  font-weight: 600; 
+}
+
+.emphasis {
+  font-style: italic;
+  color: #444;
+}
+
+/* Achievement/Qualification Highlights */
+.achievements-summary {
+  background: #f8f9fa;
+  border-left: 4px solid #3498db;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.achievements-summary ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+
+.achievements-summary li {
+  padding-left: 20px;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.achievements-summary li:before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  background-color: #3498db;
+  border-radius: 50%;
+  position: absolute;
+  left: 0;
+  top: 8px;
+}
+
+/* Call to Action */
+.closing-statement {
+  font-weight: 500;
+  color: #2c3e50;
+  margin-top: 18px;
+  margin-bottom: 18px;
+}
+
+/* Signature Block */
+.signature { 
+  margin-top: 35px; 
+  page-break-inside: avoid;
+} 
+
+.closing-phrase { 
+  font-size: 15px; 
+  color: #444; 
+  margin-bottom: 25px;
+}
+
+.signature-name { 
+  font-size: 16px; 
+  font-weight: 700; 
+  color: #2c3e50; 
+  margin-bottom: 3px;
+}
+
+.signature-line {
+  color: #ccc;
+  margin-bottom: 20px;
+}
+
+.signature-contact {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.signature-contact a {
+  color: #3498db;
+  text-decoration: none;
+}
+
+/* Print Optimizations */
+@media print {
+  @page {
+    size: 8.5in 11in;
+    margin: 0.75in;
+  }
+  
+  body { 
+    padding: 0;
+    max-width: none;
+    width: 100%;
+    font-size: 14px;
+  }
+  
+  .letter-header, .date, .recipient, .salutation, .subject {
+    page-break-inside: avoid;
+  }
+  
+  .letter-body p {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  .sender-name {
+    font-size: 18px;
+  }
+  
+  .sender-contact, .date, .recipient, .salutation {
+    font-size: 13px;
+  }
+  
+  .subject {
+    font-size: 15px;
+  }
+  
+  .letter-body {
+    font-size: 14px;
+  }
+  
+  .achievements-summary {
+    page-break-inside: avoid;
+  }
+  
+  .signature {
+    margin-top: 30px;
+  }
+}
+`;
+
+  // Choose appropriate CSS based on document type
+  const cssFramework = docType.toLowerCase().includes("cover") ? coverLetterCssFramework : resumeCssFramework;
 
   // Build the contact line with proper HTML links
   const linkedInLink = personalInfo?.linkedIn 
@@ -534,6 +772,112 @@ ${styledExampleText}
 
 === END OF STYLED EXAMPLE ===
 ` : "";
+
+  const isCoverLetter = docType.toLowerCase().includes("cover");
+  
+  // Build cover letter specific contact HTML
+  const coverLetterContactHTML = `
+    <div class="sender-name">${personalInfo?.fullName || ""}</div>
+    <div class="sender-contact">
+      ${personalInfo?.address ? `${personalInfo.address}<br>` : ''}
+      ${personalInfo?.phone ? `${personalInfo.phone}<br>` : ''}
+      ${personalInfo?.email ? `<a href="mailto:${personalInfo.email}" style="color: #3498db; text-decoration: none;">${personalInfo.email}</a><br>` : ''}
+      ${personalInfo?.linkedIn ? `<a href="${personalInfo.linkedIn.startsWith('http') ? personalInfo.linkedIn : 'https://' + personalInfo.linkedIn}" target="_blank" style="color: #3498db; text-decoration: none;">LinkedIn</a><br>` : ''}
+      ${personalInfo?.portfolio ? `<a href="${personalInfo.portfolio.startsWith('http') ? personalInfo.portfolio : 'https://' + personalInfo.portfolio}" target="_blank" style="color: #3498db; text-decoration: none;">Portfolio</a>` : ''}
+    </div>
+  `;
+
+  const coverLetterPrompt = `You are a Professional Cover Letter Formatter. Transform the following cover letter content into a beautifully styled HTML document.
+${styledExampleSection}
+## CRITICAL - WORD COMPATIBILITY RULES:
+1. DO NOT use CSS variables - use direct hex colors
+2. DO NOT use flexbox or CSS Grid
+3. Use simple, inline-friendly CSS properties
+4. All colors must be hex codes (#2c3e50, #3498db, #555, etc.)
+
+## CANDIDATE PERSONAL INFORMATION (USE THESE EXACT VALUES):
+- Full Name: ${personalInfo?.fullName || ""}
+- Email: ${personalInfo?.email || ""}
+- Phone: ${personalInfo?.phone || ""}
+- Address: ${personalInfo?.address || ""}
+- LinkedIn URL: ${personalInfo?.linkedIn || ""}
+- Portfolio URL: ${personalInfo?.portfolio || ""}
+
+## CSS FRAMEWORK (embed this in the HTML):
+${cssFramework}
+
+## CONTENT TO FORMAT:
+${content}
+
+## REQUIRED HTML STRUCTURE FOR COVER LETTER:
+
+Use this EXACT structure with the CSS classes from the framework:
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cover Letter</title>
+    <style>[EMBED FULL CSS HERE]</style>
+</head>
+<body>
+    <div class="letter-header">
+        ${coverLetterContactHTML}
+    </div>
+
+    <div class="date">[Today's date from the content]</div>
+
+    <div class="recipient">
+        <div class="recipient-name">[Hiring Manager name if known]</div>
+        <div class="recipient-title">[Title if known]</div>
+        <div class="recipient-company">[Company Name]</div>
+        <div class="recipient-address">[Address if known]</div>
+    </div>
+
+    <div class="salutation">Dear [Recipient Name/Hiring Manager],</div>
+
+    <div class="subject">Re: Application for [Position] at [Company]</div>
+
+    <div class="letter-body">
+        <p class="opening-paragraph">[Opening paragraph - enthusiastic hook]</p>
+        <p>[Body paragraph 1 with experience and achievements]</p>
+        <p>[Body paragraph 2 if needed]</p>
+        
+        <!-- Optional achievements box -->
+        <div class="achievements-summary">
+            <strong>Key Qualifications:</strong>
+            <ul>
+                <li>[Key achievement 1]</li>
+                <li>[Key achievement 2]</li>
+                <li>[Key achievement 3]</li>
+            </ul>
+        </div>
+        
+        <p class="closing-statement">[Closing paragraph with call to action]</p>
+    </div>
+
+    <div class="signature">
+        <div class="closing-phrase">Sincerely,</div>
+        <div class="signature-name">${personalInfo?.fullName || ""}</div>
+        <div class="signature-contact">
+            ${personalInfo?.phone || ""} | <a href="mailto:${personalInfo?.email || ""}" style="color: #3498db; text-decoration: none;">${personalInfo?.email || ""}</a>
+        </div>
+    </div>
+</body>
+</html>
+
+## CSS CLASSES TO USE:
+- .letter-header, .sender-name, .sender-contact for header
+- .date for the date line
+- .recipient, .recipient-name, .recipient-title, .recipient-company for recipient
+- .salutation for greeting
+- .subject for subject line (with blue bottom border)
+- .letter-body, .opening-paragraph, .highlight, .emphasis for body
+- .achievements-summary for optional qualifications box
+- .closing-statement for final paragraph
+- .signature, .closing-phrase, .signature-name, .signature-contact for signature
+
+Return ONLY the complete HTML code, nothing else.`;
 
   const resumePrompt = `You are a professional resume formatter.
 
@@ -577,7 +921,7 @@ For the header section, you MUST include this EXACT HTML structure:
   </div>
 </div>
 
-### For Resumes - Use these sections in order:
+### Use these sections in order:
 1. Header (.header) - Use the EXACT header HTML shown above with actual name and all contact info
 2. Professional Summary (.section with .summary)
 3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout using <tr> and <td>
@@ -586,20 +930,6 @@ For the header section, you MUST include this EXACT HTML structure:
 6. Certifications (.certification-entry)
 7. Key Achievements (.achievements-list)
 8. References section using HTML table (.references-table) for 2-column layout
-
-### For Cover Letters - Use these sections:
-1. Letter header (.letter-header) with .sender-info containing ALL contact details:
-   - Name: ${personalInfo?.fullName || ""}
-   - Address: ${personalInfo?.address || ""}
-   - Phone: ${personalInfo?.phone || ""}
-   - Email: ${personalInfo?.email || ""} (as mailto: link)
-   - LinkedIn: ${linkedInLink} (as clickable link)
-   - Portfolio: ${portfolioLink} (as clickable link)
-2. Date (.date)
-3. Recipient info (.recipient-info)
-4. Subject line (.subject-line)
-5. Letter body (.letter-body) with paragraphs
-6. Signature (.signature) with ACTUAL name "${personalInfo?.fullName || ""}"
 
 ### Output Format:
 - Complete HTML document with <!DOCTYPE html>
@@ -612,6 +942,8 @@ For the header section, you MUST include this EXACT HTML structure:
 
 Return ONLY the complete HTML code, nothing else.`;
 
+  const prompt = isCoverLetter ? coverLetterPrompt : resumePrompt;
+
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -622,7 +954,7 @@ Return ONLY the complete HTML code, nothing else.`;
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: 8000,
-      messages: [{ role: "user", content: resumePrompt }],
+      messages: [{ role: "user", content: prompt }],
     }),
   });
 
