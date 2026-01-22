@@ -94,9 +94,32 @@ export function RecentSettings({ onLoadSettings, refreshTrigger }: RecentSetting
     if (!jobs || jobs.length === 0) return "No jobs selected";
     const selectedJobs = jobs.filter((j) => j.selected);
     if (selectedJobs.length === 0) return "No jobs selected";
+    const count = selectedJobs.length;
     const firstJob = selectedJobs[0];
-    const preview = `Target: ${firstJob.position || firstJob.companyName}`;
-    return preview.length > 40 ? preview.substring(0, 37) + "..." : preview;
+    const jobName = firstJob.position || firstJob.companyName || "Job";
+    if (count === 1) {
+      return jobName.length > 35 ? jobName.substring(0, 32) + "..." : jobName;
+    }
+    return `${jobName.substring(0, 25)}... +${count - 1} more`;
+  };
+
+  const getDisplayName = (setting: RecentSetting): string => {
+    // Try to get a clean name from jobs data first
+    const jobs = setting.jobs_data;
+    if (jobs && jobs.length > 0) {
+      const selectedJobs = jobs.filter((j) => j.selected);
+      if (selectedJobs.length > 0) {
+        const firstJob = selectedJobs[0];
+        const position = firstJob.position || "";
+        const company = firstJob.companyName || "";
+        if (position && company) {
+          return `${position} @ ${company}`;
+        }
+        return position || company || setting.name.substring(0, 50);
+      }
+    }
+    // Fallback: truncate the raw name if it's too long
+    return setting.name.length > 50 ? setting.name.substring(0, 47) + "..." : setting.name;
   };
 
   return (
@@ -122,17 +145,20 @@ export function RecentSettings({ onLoadSettings, refreshTrigger }: RecentSetting
               <button
                 key={setting.id}
                 onClick={() => handleLoadSettings(setting)}
-                className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors border border-border/50"
               >
-                <div className="font-medium text-foreground">{setting.name}</div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                  {setting.style_name && (
-                    <span className="text-primary">{setting.style_name}</span>
-                  )}
-                  {setting.style_name && <span>•</span>}
-                  <span>{format(new Date(setting.created_at), "dd/MM/yyyy")}</span>
+                <div className="font-medium text-foreground truncate">
+                  {getDisplayName(setting)}
                 </div>
-                <div className="text-xs text-muted-foreground mt-1 truncate">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                  <span className="text-primary">
+                    {setting.document_type === "both" ? "Resume + Cover Letter" : 
+                     setting.document_type === "resume" ? "Resume" : "Cover Letter"}
+                  </span>
+                  <span>•</span>
+                  <span>{format(new Date(setting.created_at), "dd MMM yyyy")}</span>
+                </div>
+                <div className="text-xs text-muted-foreground/70 mt-1 truncate">
                   {getTargetPreview(setting.jobs_data)}
                 </div>
               </button>
