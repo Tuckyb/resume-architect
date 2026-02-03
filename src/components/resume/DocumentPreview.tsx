@@ -81,10 +81,13 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   return (
     <Card className="p-4 h-[calc(100vh-200px)] flex flex-col overflow-hidden">
-      <div className="flex justify-end mb-4">
-        <Button variant="default" size="sm" onClick={downloadAllAsZip}>
+      <div className="flex items-center justify-between mb-4 pb-3 border-b">
+        <span className="text-sm font-medium text-muted-foreground">
+          {documents.length} document{documents.length !== 1 ? 's' : ''} generated
+        </span>
+        <Button variant="default" onClick={downloadAllAsZip}>
           <PackageCheck className="h-4 w-4 mr-2" />
-          Download All ({documents.length})
+          Download All as ZIP
         </Button>
       </div>
       <Tabs defaultValue={jobIds[0]} className="flex flex-col flex-1">
