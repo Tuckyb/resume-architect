@@ -2,8 +2,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, FileText, Loader2, Printer } from "lucide-react";
+import { Download, FileText, Loader2, Printer, PackageCheck } from "lucide-react";
 import { GeneratedDocument, JobTarget } from "@/types/resume";
+import JSZip from "jszip";
 
 interface DocumentPreviewProps {
   documents: GeneratedDocument[];
@@ -30,6 +31,25 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
       printWindow.document.close();
       printWindow.print();
     }
+  };
+
+  const downloadAllAsZip = async () => {
+    const zip = new JSZip();
+    
+    documents.forEach((doc) => {
+      const job = jobs.find(j => j.id === doc.jobId);
+      const companyName = job?.companyName.replace(/\s+/g, "_") || "document";
+      const fileName = `${doc.type}_${companyName}.html`;
+      zip.file(fileName, doc.htmlContent);
+    });
+    
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "all_documents.zip";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const groupedDocs = documents.reduce((acc, doc) => {
@@ -61,6 +81,12 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   return (
     <Card className="p-4 h-[calc(100vh-200px)] flex flex-col overflow-hidden">
+      <div className="flex justify-end mb-4">
+        <Button variant="default" size="sm" onClick={downloadAllAsZip}>
+          <PackageCheck className="h-4 w-4 mr-2" />
+          Download All ({documents.length})
+        </Button>
+      </div>
       <Tabs defaultValue={jobIds[0]} className="flex flex-col flex-1">
         <TabsList className="w-full flex-wrap h-auto gap-1 mb-4">
           {jobIds.map((jobId) => (
