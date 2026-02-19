@@ -39,12 +39,41 @@ export function PdfUploader({ onParsed, parsedData, onPortfolioChange, portfolio
   };
 
   const processFile = async (file: File) => {
-    if (file.type !== "application/pdf") {
-      toast({ title: "Invalid file type", description: "Please upload a PDF file.", variant: "destructive" });
+    const isJson = file.type === "application/json" || file.name.endsWith(".json");
+    const isPdf = file.type === "application/pdf" || file.name.endsWith(".pdf");
+
+    if (!isPdf && !isJson) {
+      toast({ title: "Invalid file type", description: "Please upload a PDF or JSON file.", variant: "destructive" });
       return;
     }
-    setIsUploading(true);
+
     setFileName(file.name);
+
+    if (isJson) {
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        // Accept raw ParsedResumeData JSON directly
+        const parsed: ParsedResumeData = {
+          rawText: json.rawText ?? JSON.stringify(json),
+          personalInfo: json.personalInfo,
+          workExperience: json.workExperience,
+          education: json.education,
+          skills: json.skills,
+          certifications: json.certifications,
+          achievements: json.achievements,
+          references: json.references,
+        };
+        onParsed(parsed);
+        toast({ title: "JSON Loaded", description: "Resume data imported from JSON." });
+      } catch {
+        toast({ title: "Invalid JSON", description: "Could not parse the JSON file.", variant: "destructive" });
+        setFileName(null);
+      }
+      return;
+    }
+
+    setIsUploading(true);
     try {
       const base64 = await fileToBase64(file);
       const { data, error } = await supabase.functions.invoke("parse-resume-pdf", {
@@ -118,9 +147,9 @@ export function PdfUploader({ onParsed, parsedData, onPortfolioChange, portfolio
         Upload your resume PDF and portfolio JSON so the AI can create tailored, hyperlinked applications.
       </p>
 
-      {/* Section 1: Resume PDF */}
+      {/* Section 1: Resume PDF or JSON */}
       <div className="mb-5">
-        <p className="text-sm font-medium text-foreground mb-3">1. Resume / CV (PDF)</p>
+        <p className="text-sm font-medium text-foreground mb-3">1. Resume / CV (PDF or JSON)</p>
         {!parsedData?.rawText ? (
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -138,9 +167,9 @@ export function PdfUploader({ onParsed, parsedData, onPortfolioChange, portfolio
             ) : (
               <>
                 <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-2">Drag and drop your PDF here, or</p>
+                <p className="text-muted-foreground mb-2">Drag and drop your PDF or JSON here, or</p>
                 <label>
-                  <input type="file" accept=".pdf" onChange={handleFileSelect} className="hidden" />
+                  <input type="file" accept=".pdf,.json,application/pdf,application/json" onChange={handleFileSelect} className="hidden" />
                   <Button variant="outline" asChild>
                     <span className="cursor-pointer">Browse Files</span>
                   </Button>
