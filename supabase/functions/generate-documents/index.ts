@@ -151,7 +151,7 @@ ${exampleText}
     const truncated = jsonStr.length > 3000 ? jsonStr.substring(0, 3000) + "\n... [truncated]" : jsonStr;
     return `
 PORTFOLIO WEBSITE DATA:
-The candidate has a portfolio website with the following content. When writing bullet points or achievements that relate to projects or work demonstrated in this portfolio, note them with "[PORTFOLIO: url]" so they can be hyperlinked in the final output. Only reference URLs that actually exist in the data below.
+The candidate has a portfolio website with the following content. When writing bullet points or achievements that relate to projects or work demonstrated in this portfolio, embed portfolio references using the format [PORTFOLIO_LINK text="Descriptive Project Name" url="https://..."] where the text is a meaningful, context-specific description of what the reader will find (e.g. the project name, tool name, or a short descriptive phrase). NEVER use generic text like "view in portfolio". Only reference URLs that actually exist in the data below.
 
 ${truncated}
 `;
@@ -172,7 +172,7 @@ ${portfolioSection}
 
 Today's date: ${today}
 
-RAW RESUME TEXT (for additional context):
+RAW RESUME TEXT (use this as the primary source of truth if structured data above is missing):
 ${resume.rawText}
 
 Generate a complete, professional resume that:
@@ -180,13 +180,19 @@ Generate a complete, professional resume that:
 2. Highlights relevant skills and experience that match the job description
 3. Uses industry keywords from the job posting
 4. Presents work experience with strong action verbs and quantified achievements
-5. Is organized with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
-6. IMPORTANT: Include ALL references from the REFERENCES section above — do not skip or omit any reference. List each one with their name, title, and contact details.
-7. If portfolio data is provided, mark relevant bullet points with [PORTFOLIO: url] where a portfolio link should appear.
+5. Is organised with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
+
+VERBATIM RULE — DATA FIDELITY IS CRITICAL:
+- EDUCATION: Copy EVERY education entry exactly as listed in the EDUCATION section above. Include the exact degree name, institution, and period. Do NOT paraphrase, combine, or omit any entry. If the EDUCATION section above is empty but the RAW RESUME TEXT contains education data, extract and list it verbatim.
+- CERTIFICATIONS: Copy EVERY certification exactly as listed in the CERTIFICATIONS section above. Do not paraphrase or omit any.
+- REFERENCES: Copy EVERY reference exactly as listed in the REFERENCES section above. Include their full name, title, and contact details. Do NOT skip, merge, or invent any reference. If the section says "Not provided", only then omit references.
+- Do NOT invent, fabricate, or add any education, certification, or reference that is not present in the provided data.
+
+PORTFOLIO LINKS: If portfolio data is provided and you reference a project or piece of work from it, use the format [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in the sentence — where "text" is a specific, meaningful description of the linked content (e.g. the project name). NEVER use generic phrases like "view in portfolio".
 
 Output ONLY the resume content in plain text with clear section headers. No HTML or markdown.`;
   } else {
-    prompt = `You are a Professional Cover Letter Craftsman. Create a compelling, personalized cover letter that connects this candidate with their target role.
+    prompt = `You are a Professional Cover Letter Writer. Create a compelling, personalized cover letter that connects this candidate with their target role.
 
 ${candidateInfo}
 
@@ -202,13 +208,18 @@ RAW RESUME TEXT (for additional context):
 ${resume.rawText}
 
 Generate a professional cover letter that:
-1. Opens with an engaging statement about why you're excited about ${job.position} at ${job.companyName}
-2. Demonstrates understanding of the company and role
-3. Connects 2-3 key experiences/achievements directly to the job requirements
-4. Shows enthusiasm and cultural fit
-5. Closes with confidence and a clear call to action
-6. Is formatted as a proper business letter with today's date
-7. If portfolio data is provided, mark relevant mentions with [PORTFOLIO: url] where a portfolio link should appear.
+1. Opens with a specific, genuine statement about this ${job.position} role at ${job.companyName} — avoid clichés
+2. Demonstrates understanding of what the company does and what they need
+3. Weaves 2–3 specific, concrete achievements from the candidate's background into the body paragraphs — integrate them naturally into prose, do NOT use a bullet list or boxed summary
+4. Closes confidently with a clear call to action
+5. Is formatted as a proper business letter with today's date
+6. If portfolio data is provided, embed portfolio references as [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in sentences — not as standalone bullet points
+
+TONE RULES — WRITE LIKE A HUMAN, NOT AN AI:
+- Use specific, concrete language. Name the actual tools, projects, outcomes.
+- Avoid all corporate buzzwords: do NOT use "dynamic", "passionate", "leverage", "synergy", "results-driven", "motivated", "team player", "innovative", "proactive", or similar filler words.
+- Do not use hollow openers like "I am writing to express my interest..." or "I am excited to apply..."
+- Write in a direct, natural voice as if the candidate wrote it themselves.
 
 The letter should be addressed from:
 ${personalInfo?.fullName || "Candidate"}
@@ -343,11 +354,10 @@ body {
 
 /* Professional Summary */
 .summary {
-  font-style: italic;
   color: #4a5568;
-  padding: 10px 15px;
-  background-color: #f7fafc;
-  border-left: 4px solid #3182ce;
+  font-size: 11pt;
+  line-height: 1.6;
+  margin-bottom: 5px;
 }
 
 /* Competencies Table */
@@ -825,9 +835,9 @@ ${styledExampleText}
   // Portfolio link conversion instructions
   const portfolioLinkSection = portfolioJson ? `
 ## PORTFOLIO LINK CONVERSION:
-The content may contain markers like [PORTFOLIO: url]. Convert each one into a clickable inline hyperlink:
-<a href="url" target="_blank" style="color:#3182ce;text-decoration:none;">view in portfolio</a>
-Remove the [PORTFOLIO: ...] marker and replace it with the hyperlink inline in the text.
+The content may contain markers like [PORTFOLIO_LINK text="Descriptive Name" url="https://..."]. Convert each one into a clickable inline hyperlink embedded naturally in the surrounding sentence:
+<a href="url" target="_blank" style="color:#3182ce;text-decoration:none;">Descriptive Name</a>
+Use the "text" attribute value as the visible link text. Remove the marker and replace it with the hyperlink inline — do NOT add "view in portfolio" or any generic label.
 ` : "";
 
   const isCoverLetter = docType.toLowerCase().includes("cover");
@@ -897,21 +907,11 @@ Use this EXACT structure with the CSS classes from the framework:
     <div class="subject">Re: Application for [Position] at [Company]</div>
 
     <div class="letter-body">
-        <p class="opening-paragraph">[Opening paragraph - enthusiastic hook]</p>
-        <p>[Body paragraph 1 with experience and achievements]</p>
-        <p>[Body paragraph 2 if needed]</p>
-        
-        <!-- Optional achievements box -->
-        <div class="achievements-summary">
-            <strong>Key Qualifications:</strong>
-            <ul>
-                <li>[Key achievement 1]</li>
-                <li>[Key achievement 2]</li>
-                <li>[Key achievement 3]</li>
-            </ul>
-        </div>
-        
-        <p class="closing-statement">[Closing paragraph with call to action]</p>
+        <p class="opening-paragraph">[Opening paragraph — specific and direct, no clichés]</p>
+        <p>[Body paragraph 1 — weave a concrete achievement into natural prose]</p>
+        <p>[Body paragraph 2 — connect another experience/skill to the role's needs]</p>
+        <p>[Body paragraph 3 if needed — further relevant experience]</p>
+        <p class="closing-statement">[Closing paragraph with confident call to action]</p>
     </div>
 
     <div class="signature">
@@ -931,9 +931,10 @@ Use this EXACT structure with the CSS classes from the framework:
 - .salutation for greeting
 - .subject for subject line (with blue bottom border)
 - .letter-body, .opening-paragraph, .highlight, .emphasis for body
-- .achievements-summary for optional qualifications box
 - .closing-statement for final paragraph
 - .signature, .closing-phrase, .signature-name, .signature-contact for signature
+
+DO NOT include any achievements-summary box or bullet list box. Weave achievements naturally into prose paragraphs.
 
 Return ONLY the complete HTML code, nothing else.`;
 
