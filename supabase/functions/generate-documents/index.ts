@@ -98,36 +98,36 @@ async function generateWithClaude(
 
   const candidateInfo = `
 CANDIDATE INFORMATION:
-- Full Name: ${personalInfo?.fullName || "Not provided"}
-- Email: ${personalInfo?.email || "Not provided"}
-- Phone: ${personalInfo?.phone || "Not provided"}
-- Address: ${personalInfo?.address || "Not provided"}
-- LinkedIn: ${personalInfo?.linkedIn || "Not provided"}
-- Portfolio: ${personalInfo?.portfolio || "Not provided"}
+- Full Name: ${personalInfo?.fullName || "(extract from raw text)"}
+- Email: ${personalInfo?.email || "(extract from raw text)"}
+- Phone: ${personalInfo?.phone || "(extract from raw text)"}
+- Address: ${personalInfo?.address || "(extract from raw text)"}
+- LinkedIn: ${personalInfo?.linkedIn || "(extract from raw text)"}
+- Portfolio: ${personalInfo?.portfolio || "(extract from raw text)"}
 
-WORK EXPERIENCE:
-${workExpArray.map(exp => `
+WORK EXPERIENCE (${workExpArray.length} entries — copy VERBATIM):
+${workExpArray.length > 0 ? workExpArray.map(exp => `
 ${exp.title} at ${exp.company} (${exp.period})
 ${Array.isArray(exp.responsibilities) ? exp.responsibilities.map(r => `• ${r}`).join("\n") : exp.responsibilities}
-`).join("\n") || "Not provided"}
+`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
-EDUCATION:
-${educationArray.map(edu => `
+EDUCATION (${educationArray.length} entries — copy VERBATIM):
+${educationArray.length > 0 ? educationArray.map(edu => `
 ${edu.degree} - ${edu.institution} (${edu.period})
 ${Array.isArray(edu.achievements) ? edu.achievements.map(a => `• ${a}`).join("\n") : ""}
-`).join("\n") || "Not provided"}
+`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
 SKILLS:
-${skillsText || "Not provided"}
+${skillsText || "(extract from RAW RESUME TEXT below)"}
 
-CERTIFICATIONS:
-${certificationsArray.join(", ") || "Not provided"}
+CERTIFICATIONS (${certificationsArray.length} entries — copy VERBATIM):
+${certificationsArray.length > 0 ? certificationsArray.join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
-ACHIEVEMENTS:
-${achievementsArray.map(a => `• ${a}`).join("\n") || "Not provided"}
+ACHIEVEMENTS (${achievementsArray.length} entries):
+${achievementsArray.length > 0 ? achievementsArray.map(a => `• ${a}`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
-REFERENCES:
-${referencesText || "Not provided"}
+REFERENCES (${referencesArray.length} entries — copy VERBATIM):
+${referencesArray.length > 0 ? referencesText : "(not in structured data — extract from RAW RESUME TEXT below)"}
 `;
 
   const jobInfo = `
@@ -176,17 +176,23 @@ RAW RESUME TEXT (use this as the primary source of truth if structured data abov
 ${resume.rawText}
 
 Generate a complete, professional resume that:
-1. Has a strong professional summary tailored to the ${job.position} role at ${job.companyName}
+1. PROFESSIONAL SUMMARY — Write EXACTLY 2–4 sentences. No more.
+   - Sentence 1: Who the candidate is based on their actual experience (job titles, industry, years of experience)
+   - Sentence 2: What specific value they bring to the ${job.position} role at ${job.companyName} — use 2–3 actual keywords from the JOB DESCRIPTION above
+   - Sentence 3 (optional): One specific, concrete achievement with a number or outcome
+   - NEVER write a generic paragraph. NEVER use buzzwords like "dynamic", "passionate", "results-driven", "synergy", "leverage". Write like a human.
 2. Highlights relevant skills and experience that match the job description
 3. Uses industry keywords from the job posting
 4. Presents work experience with strong action verbs and quantified achievements
 5. Is organised with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
 
-VERBATIM RULE — DATA FIDELITY IS CRITICAL:
-- EDUCATION: Copy EVERY education entry exactly as listed in the EDUCATION section above. Include the exact degree name, institution, and period. Do NOT paraphrase, combine, or omit any entry. If the EDUCATION section above is empty but the RAW RESUME TEXT contains education data, extract and list it verbatim.
-- CERTIFICATIONS: Copy EVERY certification exactly as listed in the CERTIFICATIONS section above. Do not paraphrase or omit any.
-- REFERENCES: Copy EVERY reference exactly as listed in the REFERENCES section above. Include their full name, title, and contact details. Do NOT skip, merge, or invent any reference. If the section says "Not provided", only then omit references.
-- Do NOT invent, fabricate, or add any education, certification, or reference that is not present in the provided data.
+VERBATIM RULE — DATA FIDELITY IS MANDATORY:
+You have been provided ${educationArray.length} education entries, ${certificationsArray.length} certifications, and ${referencesArray.length} references in the structured data above.
+- EDUCATION: ALL ${educationArray.length} education entries listed above MUST appear in the output. Copy degree, institution, and period exactly. If count is 0, scan the RAW RESUME TEXT below and extract all education entries from it verbatim.
+- CERTIFICATIONS: ALL ${certificationsArray.length} certifications listed above MUST appear exactly as written. If count is 0, scan the RAW RESUME TEXT below and extract all certifications from it verbatim.
+- REFERENCES: ALL ${referencesArray.length} references listed above MUST appear with full name, title, and contact details. If count is 0, scan the RAW RESUME TEXT below and extract all references from it verbatim.
+- NEVER write "Not provided" anywhere in the output.
+- Do NOT invent, fabricate, or add any education, certification, or reference that is not in the data above or RAW RESUME TEXT.
 
 PORTFOLIO LINKS: If portfolio data is provided and you reference a project or piece of work from it, use the format [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in the sentence — where "text" is a specific, meaningful description of the linked content (e.g. the project name). NEVER use generic phrases like "view in portfolio".
 
