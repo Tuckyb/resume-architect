@@ -81,7 +81,8 @@ async function generateWithClaude(
 
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
-  const skillsText = skills?.map(s => `${s.category}: ${s.items.join(", ")}`).join("\n") || "";
+  const skillsArray = Array.isArray(skills) ? skills : [];
+  const skillsText = skillsArray.map(s => `${s.category}: ${Array.isArray(s.items) ? s.items.join(", ") : s.items}`).join("\n");
   
   const referencesText = references?.map(ref => 
     `- ${ref.name} | ${ref.title} | ${ref.contact}`
