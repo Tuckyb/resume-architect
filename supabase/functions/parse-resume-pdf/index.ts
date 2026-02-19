@@ -58,29 +58,13 @@ Deno.serve(async (req) => {
 
     console.log(`Parsing PDF: ${fileName}`);
 
-    // Use Lovable AI Gateway to extract structured information from PDF
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
-    // First, we need to extract text from the PDF
-    // Since we can't directly process PDF binary in the LLM, we'll use the base64 content
-    // For now, we'll send it to the AI with instructions to parse resume-like content
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are a resume parser. Extract structured information from the resume text/content provided.
+    const systemPrompt = `You are a resume parser. Extract structured information from the resume PDF provided.
             
 Return a JSON object with this structure:
 {
@@ -133,26 +117,38 @@ IMPORTANT:
 - Extract LinkedIn and portfolio URLs if present
 - Extract references with name, title/role, and contact information
 - Only include fields you can confidently extract
-- Return valid JSON only, no markdown`,
-          },
+- Return valid JSON only, no markdown`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [
           {
             role: "user",
             content: [
               {
-                type: "text",
-                text: `Parse this resume PDF and extract all information. The PDF is base64 encoded. Extract as much structured information as possible.`,
+                type: "document",
+                source: {
+                  type: "base64",
+                  media_type: "application/pdf",
+                  data: pdfBase64,
+                },
               },
               {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`,
-                },
+                type: "text",
+                text: "Parse this resume PDF and extract all information as structured JSON.",
               },
             ],
           },
         ],
-        max_tokens: 4000,
-        temperature: 0.1,
       }),
     });
 
@@ -163,9 +159,10 @@ IMPORTANT:
     }
 
     const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content;
+    const content = aiResponse.content?.[0]?.text;
 
     if (!content) {
+      console.error("Unexpected AI response:", JSON.stringify(aiResponse));
       throw new Error("No response from AI");
     }
 
