@@ -82,11 +82,17 @@ async function generateWithClaude(
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
   const skillsArray = Array.isArray(skills) ? skills : [];
-  const skillsText = skillsArray.map(s => `${s.category}: ${Array.isArray(s.items) ? s.items.join(", ") : s.items}`).join("\n");
+  const skillsText = skillsArray.map(s => `${s.category}: ${Array.isArray(s.items) ? s.items.join(", ") : String(s.items)}`).join("\n");
   
-  const referencesText = references?.map(ref => 
+  const workExpArray = Array.isArray(workExperience) ? workExperience : [];
+  const educationArray = Array.isArray(education) ? education : [];
+  const certificationsArray = Array.isArray(certifications) ? certifications : [];
+  const achievementsArray = Array.isArray(achievements) ? achievements : [];
+  const referencesArray = Array.isArray(references) ? references : [];
+
+  const referencesText = referencesArray.map(ref => 
     `- ${ref.name} | ${ref.title} | ${ref.contact}`
-  ).join("\n") || "";
+  ).join("\n");
 
   const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -100,25 +106,25 @@ CANDIDATE INFORMATION:
 - Portfolio: ${personalInfo?.portfolio || "Not provided"}
 
 WORK EXPERIENCE:
-${workExperience?.map(exp => `
+${workExpArray.map(exp => `
 ${exp.title} at ${exp.company} (${exp.period})
-${exp.responsibilities.map(r => `• ${r}`).join("\n")}
+${Array.isArray(exp.responsibilities) ? exp.responsibilities.map(r => `• ${r}`).join("\n") : exp.responsibilities}
 `).join("\n") || "Not provided"}
 
 EDUCATION:
-${education?.map(edu => `
+${educationArray.map(edu => `
 ${edu.degree} - ${edu.institution} (${edu.period})
-${edu.achievements?.map(a => `• ${a}`).join("\n") || ""}
+${Array.isArray(edu.achievements) ? edu.achievements.map(a => `• ${a}`).join("\n") : ""}
 `).join("\n") || "Not provided"}
 
 SKILLS:
 ${skillsText || "Not provided"}
 
 CERTIFICATIONS:
-${certifications?.join(", ") || "Not provided"}
+${certificationsArray.join(", ") || "Not provided"}
 
 ACHIEVEMENTS:
-${achievements?.map(a => `• ${a}`).join("\n") || "Not provided"}
+${achievementsArray.map(a => `• ${a}`).join("\n") || "Not provided"}
 
 REFERENCES:
 ${referencesText || "Not provided"}
