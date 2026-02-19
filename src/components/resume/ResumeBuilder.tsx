@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDefaultExamples } from "@/hooks/useDefaultExamples";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -16,8 +17,7 @@ import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 
 import { RecentSettings } from "./RecentSettings";
-import { UploadExamples, ExampleTexts } from "./UploadExamples";
-import { Sparkles, AlertCircle, FileText, Settings } from "lucide-react";
+import { Sparkles, AlertCircle, FileText, Settings, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ResumeBuilder() {
@@ -29,12 +29,8 @@ export function ResumeBuilder() {
   const [generatedDocs, setGeneratedDocs] = useState<GeneratedDocument[]>([]);
   const [currentJobIndex, setCurrentJobIndex] = useState(0);
   const [settingsRefreshTrigger, setSettingsRefreshTrigger] = useState(0);
-  const [exampleTexts, setExampleTexts] = useState<ExampleTexts>({ 
-    exampleResumeText: null, 
-    exampleCoverLetterText: null,
-    styledResumeText: null,
-    styledCoverLetterText: null,
-  });
+  const { examples: exampleTexts, isLoading: isLoadingExamples } = useDefaultExamples();
+  const [portfolioJson, setPortfolioJson] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState<string>("setup");
 
   const selectedJobs = jobs.filter((j) => j.selected);
@@ -78,6 +74,7 @@ export function ResumeBuilder() {
             exampleCoverLetterText: exampleTexts.exampleCoverLetterText,
             styledResumeText: exampleTexts.styledResumeText,
             styledCoverLetterText: exampleTexts.styledCoverLetterText,
+            portfolioJson: portfolioJson,
           },
         });
 
@@ -171,7 +168,12 @@ export function ResumeBuilder() {
               {/* Left Column - Inputs */}
               <div className="space-y-6">
                 {/* PDF Upload */}
-                <PdfUploader onParsed={setParsedResume} parsedData={parsedResume} />
+                <PdfUploader
+                  onParsed={setParsedResume}
+                  parsedData={parsedResume}
+                  onPortfolioChange={setPortfolioJson}
+                  portfolioJson={portfolioJson}
+                />
 
                 {/* Job List Upload */}
                 <JobListUploader jobs={jobs} onJobsChange={setJobs} />
@@ -235,9 +237,13 @@ export function ResumeBuilder() {
 
               {/* Right Column - Settings */}
               <div className="flex flex-col space-y-6">
-                {/* Upload Examples */}
-                <UploadExamples onExamplesChange={setExampleTexts} />
-                
+                {isLoadingExamples && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading style examples…
+                  </div>
+                )}
+
                 {/* Recent Settings */}
                 <RecentSettings 
                   refreshTrigger={settingsRefreshTrigger}

@@ -65,6 +65,7 @@ interface RequestData {
   exampleCoverLetterText?: string | null;
   styledResumeText?: string | null;
   styledCoverLetterText?: string | null;
+  portfolioJson?: Record<string, unknown> | null;
 }
 
 // Generate document content using Claude
@@ -73,7 +74,8 @@ async function generateWithClaude(
   job: JobTarget,
   docType: "resume" | "cover-letter",
   exampleText: string | null | undefined,
-  apiKey: string
+  apiKey: string,
+  portfolioJson?: Record<string, unknown> | null
 ): Promise<string> {
   console.log(`Generating ${docType} content with Claude...`);
 
@@ -137,6 +139,17 @@ EXAMPLE ${docType.toUpperCase()} TO REFERENCE (for style and format guidance):
 ${exampleText}
 ` : "";
 
+  const portfolioSection = portfolioJson ? (() => {
+    const jsonStr = JSON.stringify(portfolioJson, null, 2);
+    const truncated = jsonStr.length > 3000 ? jsonStr.substring(0, 3000) + "\n... [truncated]" : jsonStr;
+    return `
+PORTFOLIO WEBSITE DATA:
+The candidate has a portfolio website with the following content. When writing bullet points or achievements that relate to projects or work demonstrated in this portfolio, note them with "[PORTFOLIO: url]" so they can be hyperlinked in the final output. Only reference URLs that actually exist in the data below.
+
+${truncated}
+`;
+  })() : "";
+
   let prompt: string;
 
   if (docType === "resume") {
@@ -147,6 +160,8 @@ ${candidateInfo}
 ${jobInfo}
 
 ${exampleSection}
+
+${portfolioSection}
 
 Today's date: ${today}
 
@@ -159,6 +174,8 @@ Generate a complete, professional resume that:
 3. Uses industry keywords from the job posting
 4. Presents work experience with strong action verbs and quantified achievements
 5. Is organized with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
+6. IMPORTANT: Include ALL references from the REFERENCES section above — do not skip or omit any reference. List each one with their name, title, and contact details.
+7. If portfolio data is provided, mark relevant bullet points with [PORTFOLIO: url] where a portfolio link should appear.
 
 Output ONLY the resume content in plain text with clear section headers. No HTML or markdown.`;
   } else {
@@ -169,6 +186,8 @@ ${candidateInfo}
 ${jobInfo}
 
 ${exampleSection}
+
+${portfolioSection}
 
 Today's date: ${today}
 
@@ -182,6 +201,7 @@ Generate a professional cover letter that:
 4. Shows enthusiasm and cultural fit
 5. Closes with confidence and a clear call to action
 6. Is formatted as a proper business letter with today's date
+7. If portfolio data is provided, mark relevant mentions with [PORTFOLIO: url] where a portfolio link should appear.
 
 The letter should be addressed from:
 ${personalInfo?.fullName || "Candidate"}
@@ -223,12 +243,31 @@ Output ONLY the cover letter content in plain text format. No HTML or markdown.`
   return content;
 }
 
+function buildReferencesHTML(references: Reference[]): string {
+  if (!references || references.length === 0) return "";
+  const rows: string[] = [];
+  for (let i = 0; i < references.length; i += 2) {
+    const ref1 = references[i];
+    const ref2 = references[i + 1];
+    const cellStyle = 'width:50%;padding:8px;vertical-align:top;';
+    const entryStyle = 'background-color:#f7fafc;padding:12px;border:1px solid #e2e8f0;';
+    const cell1 = `<td style="${cellStyle}"><div style="${entryStyle}"><div style="font-weight:600;color:#2c5282;">${ref1.name}</div><div style="font-size:10pt;color:#4a5568;">${ref1.title}</div><div style="font-size:9pt;color:#4a5568;margin-top:5px;">${ref1.contact}</div></div></td>`;
+    const cell2 = ref2
+      ? `<td style="${cellStyle}"><div style="${entryStyle}"><div style="font-weight:600;color:#2c5282;">${ref2.name}</div><div style="font-size:10pt;color:#4a5568;">${ref2.title}</div><div style="font-size:9pt;color:#4a5568;margin-top:5px;">${ref2.contact}</div></div></td>`
+      : `<td style="${cellStyle}"></td>`;
+    rows.push(`<tr>${cell1}${cell2}</tr>`);
+  }
+  return `<div class="section"><div class="section-title">References</div><table style="width:100%;border-collapse:collapse;">${rows.join("")}</table></div>`;
+}
+
 async function formatWithClaude(
-  content: string, 
-  docType: string, 
-  apiKey: string, 
+  content: string,
+  docType: string,
+  apiKey: string,
   personalInfo?: ParsedResumeData['personalInfo'],
-  styledExampleText?: string | null
+  styledExampleText?: string | null,
+  references?: Reference[] | null,
+  portfolioJson?: Record<string, unknown> | null
 ): Promise<string> {
   console.log("Calling Claude API for HTML formatting...");
   console.log("Personal info for formatting:", JSON.stringify(personalInfo));
@@ -773,6 +812,17 @@ ${styledExampleText}
 === END OF STYLED EXAMPLE ===
 ` : "";
 
+  // Pre-build references HTML to inject directly (ensures they are never omitted)
+  const referencesHTML = references && references.length > 0 ? buildReferencesHTML(references) : "";
+
+  // Portfolio link conversion instructions
+  const portfolioLinkSection = portfolioJson ? `
+## PORTFOLIO LINK CONVERSION:
+The content may contain markers like [PORTFOLIO: url]. Convert each one into a clickable inline hyperlink:
+<a href="url" target="_blank" style="color:#3182ce;text-decoration:none;">view in portfolio</a>
+Remove the [PORTFOLIO: ...] marker and replace it with the hyperlink inline in the text.
+` : "";
+
   const isCoverLetter = docType.toLowerCase().includes("cover");
   
   // Build cover letter specific contact HTML
@@ -789,6 +839,7 @@ ${styledExampleText}
 
   const coverLetterPrompt = `You are a Professional Cover Letter Formatter. Transform the following cover letter content into a beautifully styled HTML document.
 ${styledExampleSection}
+${portfolioLinkSection}
 ## CRITICAL - WORD COMPATIBILITY RULES:
 1. DO NOT use CSS variables - use direct hex colors
 2. DO NOT use flexbox or CSS Grid
@@ -883,6 +934,7 @@ Return ONLY the complete HTML code, nothing else.`;
 
 Transform the following ${docType} content into a beautifully styled HTML document that is FULLY COMPATIBLE WITH MICROSOFT WORD.
 ${styledExampleSection}
+${portfolioLinkSection}
 ## CRITICAL - WORD COMPATIBILITY RULES:
 1. DO NOT use CSS variables (var(--something)) - use direct hex colors like #1a365d
 2. DO NOT use flexbox (display: flex) - use HTML tables for layouts
@@ -929,7 +981,8 @@ For the header section, you MUST include this EXACT HTML structure:
 5. Education (.education-entry)
 6. Certifications (.certification-entry)
 7. Key Achievements (.achievements-list)
-8. References section using HTML table (.references-table) for 2-column layout
+8. References - PASTE THIS EXACT PRE-BUILT HTML AT THE END (do not modify it):
+${referencesHTML || "<!-- No references provided -->"}
 
 ### Output Format:
 - Complete HTML document with <!DOCTYPE html>
@@ -994,14 +1047,15 @@ Deno.serve(async (req) => {
     }
 
     const requestData: RequestData = await req.json();
-    const { 
-      parsedResumeData, 
-      jobTarget, 
-      documentType, 
-      exampleResumeText, 
+    const {
+      parsedResumeData,
+      jobTarget,
+      documentType,
+      exampleResumeText,
       exampleCoverLetterText,
       styledResumeText,
-      styledCoverLetterText 
+      styledCoverLetterText,
+      portfolioJson
     } = requestData;
 
     console.log(
@@ -1019,15 +1073,16 @@ Deno.serve(async (req) => {
     if (documentType === "resume" || documentType === "both") {
       console.log("Generating resume content with Claude...");
       const rawResume = await generateWithClaude(
-        parsedResumeData, 
-        jobTarget, 
-        "resume", 
+        parsedResumeData,
+        jobTarget,
+        "resume",
         exampleResumeText,
-        anthropicApiKey
+        anthropicApiKey,
+        portfolioJson
       );
-      
+
       console.log("Resume content generated, formatting with Claude...");
-      const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo, styledResumeText);
+      const htmlResume = await formatWithClaude(rawResume, "resume", anthropicApiKey, parsedResumeData.personalInfo, styledResumeText, parsedResumeData.references, portfolioJson);
 
       documents.push({
         type: "resume",
@@ -1040,15 +1095,16 @@ Deno.serve(async (req) => {
     if (documentType === "cover-letter" || documentType === "both") {
       console.log("Generating cover letter content with Claude...");
       const rawCoverLetter = await generateWithClaude(
-        parsedResumeData, 
-        jobTarget, 
-        "cover-letter", 
+        parsedResumeData,
+        jobTarget,
+        "cover-letter",
         exampleCoverLetterText,
-        anthropicApiKey
+        anthropicApiKey,
+        portfolioJson
       );
-      
+
       console.log("Cover letter content generated, formatting with Claude...");
-      const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo, styledCoverLetterText);
+      const htmlCoverLetter = await formatWithClaude(rawCoverLetter, "cover letter", anthropicApiKey, parsedResumeData.personalInfo, styledCoverLetterText, null, portfolioJson);
 
       documents.push({
         type: "cover-letter",

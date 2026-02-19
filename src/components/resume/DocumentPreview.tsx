@@ -13,11 +13,11 @@ interface DocumentPreviewProps {
 }
 
 export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPreviewProps) {
-  const downloadHTML = (doc: GeneratedDocument, job?: JobTarget) => {
-    const blob = new Blob([doc.htmlContent], { type: "text/html" });
+  const downloadDoc = (doc: GeneratedDocument, job?: JobTarget) => {
+    const blob = new Blob([doc.htmlContent], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const fileName = job ? `${doc.type}_${job.companyName.replace(/\s+/g, "_")}.html` : `${doc.type}.html`;
+    const fileName = job ? `${doc.type}_${job.companyName.replace(/\s+/g, "_")}.doc` : `${doc.type}.doc`;
     a.href = url;
     a.download = fileName;
     a.click();
@@ -39,10 +39,10 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
     documents.forEach((doc) => {
       const job = jobs.find(j => j.id === doc.jobId);
       const companyName = job?.companyName.replace(/\s+/g, "_") || "document";
-      const fileName = `${doc.type}_${companyName}.html`;
+      const fileName = `${doc.type}_${companyName}.doc`;
       zip.file(fileName, doc.htmlContent);
     });
-    
+
     const blob = await zip.generateAsync({ type: "blob" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -114,8 +114,8 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
                 {jobDocs.map((doc) => (
                   <TabsContent key={doc.type} value={doc.type} className="flex-1 flex flex-col">
                     <div className="flex gap-2 mb-4">
-                      <Button variant="outline" size="sm" onClick={() => downloadHTML(doc, job)}>
-                        <Download className="h-4 w-4 mr-2" />Download
+                      <Button variant="outline" size="sm" onClick={() => downloadDoc(doc, job)}>
+                        <Download className="h-4 w-4 mr-2" />Download (.doc)
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => printDocument(doc)}>
                         <Printer className="h-4 w-4 mr-2" />Print/PDF
