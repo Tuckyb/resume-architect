@@ -135,7 +135,10 @@ async function generateWithClaude(
   // --- Professional development (LinkedIn Learning, AI courses) ---
   const profDev       = raw.professionalDevelopment;
   const linkedInCourses: any[] = profDev?.linkedinLearning || [];
-  const aiCourses: any[]       = profDev?.schoolCommunityTrainings?.trainings || [];
+  // Extract trainings from education entries that have a trainings array (e.g. School Community Trainings / Skool)
+  const aiCourses: any[] = educationArray
+    .filter((edu: any) => Array.isArray(edu.trainings))
+    .flatMap((edu: any) => edu.trainings);
 
   const profDevText = [
     ...linkedInCourses.map((c: any) => `• ${c.course} (LinkedIn Learning)${c.certificateLink ? ` — Certificate: ${c.certificateLink}` : ""}`),
@@ -164,10 +167,17 @@ ${Array.isArray(exp.responsibilities) ? exp.responsibilities.map((r: string) => 
 `).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
 EDUCATION (${educationArray.length} entries — copy VERBATIM, exactly as written):
-${educationArray.length > 0 ? educationArray.map((edu: any) => `
-${edu.degree} - ${edu.institution} (${getEduPeriod(edu)}${getEduStatus(edu)})
-${Array.isArray(edu.achievements) ? edu.achievements.map((a: string) => `• ${a}`).join("\n") : ""}
-`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
+${educationArray.length > 0 ? educationArray.map((edu: any) => {
+  const period = getEduPeriod(edu);
+  const status = getEduStatus(edu);
+  let bullets = "";
+  if (Array.isArray(edu.achievements) && edu.achievements.length > 0) {
+    bullets = edu.achievements.map((a: string) => `• ${a}`).join("\n");
+  } else if (Array.isArray(edu.trainings) && edu.trainings.length > 0) {
+    bullets = edu.trainings.map((t: any) => `• ${t.course} — ${t.provider} (Instructor: ${t.instructor})`).join("\n");
+  }
+  return `${edu.degree} - ${edu.institution} (${period}${status})\n${bullets}`;
+}).join("\n\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
 SKILLS:
 ${skillsText || "(extract from RAW RESUME TEXT below)"}
@@ -180,7 +190,7 @@ ${certificationsArray.length > 0 ? certificationsArray.map((c: any) => {
     const yr = c.year ? ` (${c.year})` : "";
     return `• ${title}${issuer}${yr}`;
   }).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
-${profDevText ? `\nPROFESSIONAL DEVELOPMENT / LINKEDIN LEARNING (include these in the Certifications or a separate Professional Development section):\n${profDevText}` : ""}
+${profDevText ? `\nPROFESSIONAL DEVELOPMENT (MANDATORY — include ALL of these as a dedicated "Professional Development" section in the resume, after Certifications):\n${profDevText}` : ""}
 
 KEY ACHIEVEMENTS (${achievementsArray.length} entries — ONLY career-level highlights, NO academic scores):
 ${achievementsArray.length > 0 ? achievementsArray.map((a: any) => `• ${typeof a === "string" ? a : (a.achievement || a.title || String(a))}`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
@@ -288,7 +298,7 @@ ANTI-HALLUCINATION RULE — ABSOLUTE (read this before writing anything):
 
 Generate a complete, professional resume that:
 1. PROFESSIONAL SUMMARY — Write EXACTLY 2–4 sentences. No more.
-   - Sentence 1: Who the candidate is — state their most recent job title(s) and field only. Do NOT calculate or state years of experience. Do NOT add descriptors like "B2B", "agency", "enterprise", or "consumer" unless those exact words appear in the WORK EXPERIENCE data above. Only use what is explicitly written.
+   - Sentence 1: State the candidate's most recent job title(s) ONLY — copied exactly from the top 1–2 entries in WORK EXPERIENCE above (e.g. "Marketing Strategy Consultant at Purple Patch Consulting"). Do NOT describe expertise, fields, or specialisations in this sentence. Do NOT add any words beyond the job title and company name.
    - Sentence 2: What specific value they bring to the ${job.position} role at ${job.companyName} — use 2–3 actual keywords from the JOB DESCRIPTION above
    - Sentence 3 (optional): One specific, concrete achievement with a measurable outcome — ONLY if it appears verbatim in KEY ACHIEVEMENTS or WORK EXPERIENCE above. Do NOT invent one.
    - NEVER write a generic paragraph. NEVER use buzzwords like "dynamic", "passionate", "results-driven", "synergy", "leverage". Write like a human.
@@ -302,6 +312,7 @@ You have been provided ${educationArray.length} education entries, ${certificati
 - EDUCATION: ALL ${educationArray.length} education entries listed above MUST appear in the output. Copy degree, institution, and period EXACTLY as written — no paraphrasing. If count is 0, scan the RAW RESUME TEXT below and extract all education entries from it verbatim.
 - CERTIFICATIONS: ALL ${certificationsArray.length} certifications listed above MUST appear exactly as written — copy the title and issuer verbatim, do NOT rephrase. If count is 0, scan the RAW RESUME TEXT below and extract all certifications from it verbatim.
 - REFERENCES: ALL ${referencesArray.length} references listed above MUST appear with full name, title, and contact details exactly as written. If count is 0, scan the RAW RESUME TEXT below and extract all references from it verbatim.
+- PROFESSIONAL DEVELOPMENT: ALL LinkedIn Learning and School Community Training courses listed in the PROFESSIONAL DEVELOPMENT section above MUST appear in a dedicated "Professional Development" section placed after Certifications. Do NOT omit any course. Do NOT merge them into Certifications.
 - NEVER write "Not provided" anywhere in the output.
 - Do NOT invent, fabricate, or add any education, certification, or reference that is not in the data above or RAW RESUME TEXT.
 
