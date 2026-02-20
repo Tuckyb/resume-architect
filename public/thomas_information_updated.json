@@ -1,0 +1,243 @@
+{
+  "personal": {
+    "name": "Thomas Condran",
+    "address": "9 Rose Street, Keiraville, NSW",
+    "phone": "0435 741 817",
+    "email": "Thomas_Condran@y7mail.com",
+    "linkedin": "https://www.linkedin.com/in/thomas-condran-071293227",
+    "portfolio": "https://thomascportfolio.online/"
+  },
+  "education": [
+    {
+      "degree": "Bachelor of Commerce in Marketing",
+      "institution": "University of Wollongong",
+      "duration": "2017-2024",
+      "achievements": [
+        "Perfect Score in Marketing Strategy (100/100)",
+        "Top Graduating Distinction in Marketing and Public Relations",
+        "Most Improved Indigenous Student",
+        "Multiple distinctions in Marketing and Public Relations",
+        "Developed a custom SEO SaaS tool with automated keyword tracking and content suggestions"
+      ]
+    },
+    {
+      "degree": "Certificate IV in Screen and Media Journalism",
+      "institution": "TAFE",
+      "year": 2014
+    },
+    {
+      "degree": "Certificate IV in Project Management Practice",
+      "institution": "TAFE",
+      "year": 2025,
+      "status": "In Progress"
+    }
+  ],
+  "workExperience": [
+    {
+      "jobTitle": "Marketing Strategy Consultant",
+      "company": "Purple Patch Consulting",
+      "duration": "2022–2023",
+      "responsibilities": [
+        "Conducted competitor and keyword research to support SEO-driven campaign plans",
+        "Created documentation for internal marketing processes and performance tracking",
+        "Worked with designers and copywriters to produce conversion-oriented landing pages"
+      ]
+    },
+    {
+      "jobTitle": "Marketing Intern",
+      "company": "Layby Surgery",
+      "year": 2022,
+      "responsibilities": [
+        "Implemented on-page SEO improvements, leading to stronger engagement metrics",
+        "Supported web UX redesign and internal SEO training efforts for client team",
+        "Created a structured blog calendar optimized for search intent and user journey"
+      ]
+    },
+    {
+      "jobTitle": "Freelance PR & Digital Marketing Services",
+      "company": "Fiverr",
+      "duration": "2022–2023",
+      "responsibilities": [
+        "Delivered B2B content optimized for long-tail keywords and high-value searches",
+        "Built dashboards for content performance using Excel and Google Analytics",
+        "Produced marketing assets aligned with SEO and conversion goals"
+      ]
+    },
+    {
+      "jobTitle": "Administrative Secretary",
+      "company": "C.G Psychological Services",
+      "duration": "2004–2021",
+      "responsibilities": [
+        "Managed internal communication and documentation, including digital file structuring",
+        "Supported operations through scheduling, client communication, and reporting"
+      ]
+    }
+  ],
+  "keyAchievements": [
+    "Developed an SEO strategy for a SaaS platform targeting long-tail academic queries",
+    "Built dashboards in Excel with pivot tables and performance metrics for campaigns",
+    "Increased engagement by 25% through optimized site architecture and UX enhancements",
+    "Awarded Most Improved Indigenous Student",
+    "Delivered distinction-level academic work in SEO, marketing strategy, and analytics"
+  ],
+  "skills": {
+    "aiTechnical": [
+      "ChatGPT/Claude/Perplexity for content generation",
+      "Custom GPT model development",
+      "HTML-based prompt engineering",
+      "API integration for marketing automation",
+      "Automation workflow development",
+      "MAKE.com workflow automation"
+    ],
+    "digitalMarketing": [
+      "Google Analytics implementation and analysis",
+      "Social media campaign management",
+      "Content strategy development",
+      "SEO optimization (On/Off-Page, Content Mapping, Internal Linking)",
+      "Email marketing",
+      "Lead generation",
+      "Marketing automation",
+      "CRM management",
+      "Performance marketing and KPI reporting"
+    ],
+    "imageGenerationDesign": [
+      "Flux AI for bulk image creation",
+      "Canva advanced design capabilities",
+      "Adobe Illustrator and Photoshop basics",
+      "Visual asset creation",
+      "Infographic design",
+      "Brand asset management"
+    ],
+    "metricAnalysisData": [
+      "Google Analytics data interpretation",
+      "Campaign performance tracking",
+      "SEMrush proficiency",
+      "Excel dashboard creation (Pivot Tables, VLOOKUP)",
+      "Market research analysis",
+      "Consumer behavior analysis",
+      "ROI tracking",
+      "KPI reporting and CTR optimization"
+    ],
+    "strategyPlanning": [
+      "Marketing strategy development",
+      "Campaign planning and execution",
+      "Content calendar management",
+      "Brand strategy development",
+      "Market positioning",
+      "Competitive analysis",
+      "B2B content strategy",
+      "Go-to-market strategies"
+    ],
+    "newProductDevelopment": [
+      "Human-centered design principles",
+      "User experience optimization",
+      "Product positioning",
+      "Market research",
+      "Consumer insights analysis",
+      "Strategic planning"
+    ],
+    "contentStrategy": [
+      "Content mapping",
+      "Search-optimized content writing",
+      "Blog calendar management",
+      "Documentation and playbooks",
+      "Internal training documentation",
+      "Release roadmap management"
+    ]
+  },
+  "certifications": [
+    {
+      "title": "Google Analytics Basics",
+      "issuer": "Google"
+    },
+    {
+      "title": "Social Media Marketing Essentials",
+      "issuer": "Meta"
+    },
+    {
+      "title": "Google Digital Garage: Introduction to Google Ads",
+      "issuer": "Google"
+    },
+    {
+      "title": "Certificate IV in Screen and Media Journalism",
+      "issuer": "TAFE",
+      "year": 2014
+    },
+    {
+      "title": "No Code Architects Level 3 MAKE Automation Course",
+      "issuer": "No Code Architects",
+      "instructor": "Stephen G Pope"
+    }
+  ],
+  "professionalDevelopment": {
+    "linkedinLearning": [
+      {
+        "course": "Agile Marketing Foundations",
+        "status": "Completed",
+        "certificateLink": "https://drive.google.com/drive/folders/1sX_mlpXZAXXgZC4SS4i5lYZgxUQ3EIkm?usp=drive_link"
+      },
+      {
+        "course": "How to Build Visual Content Marketing Strategies",
+        "status": "Completed",
+        "certificateLink": "https://drive.google.com/drive/folders/1sX_mlpXZAXXgZC4SS4i5lYZgxUQ3EIkm?usp=drive_link"
+      },
+      {
+        "course": "Researching and Writing Using Generative AI Tools",
+        "status": "Completed",
+        "certificateLink": "https://drive.google.com/drive/folders/1sX_mlpXZAXXgZC4SS4i5lYZgxUQ3EIkm?usp=drive_link"
+      },
+      {
+        "course": "Using AI for Illustrations and Design",
+        "status": "Completed",
+        "certificateLink": "https://drive.google.com/drive/folders/1sX_mlpXZAXXgZC4SS4i5lYZgxUQ3EIkm?usp=drive_link"
+      }
+    ],
+    "schoolCommunityTrainings": {
+      "duration": "2024 - Present",
+      "trainings": [
+        {
+          "course": "AI Foundations",
+          "provider": "No Code Architects",
+          "instructor": "Stephen G Pope"
+        },
+        {
+          "course": "Master AI Automations",
+          "provider": "AI Automation School",
+          "instructor": "Mohamed Jahar"
+        },
+        {
+          "course": "AI Automation Hub",
+          "provider": "AI Automation Hub",
+          "instructor": "Liam Ottley"
+        },
+        {
+          "course": "AI Automation School",
+          "provider": "AI Automation School",
+          "instructor": "Hamish Davidson"
+        }
+      ]
+    }
+  },
+  "references": [
+    {
+      "name": "Elias Kyriazis",
+      "title": "Senior Lecturer",
+      "phone": "(04) 2528 8056"
+    },
+    {
+      "name": "Tom Hitchcock",
+      "title": "Director",
+      "phone": "(04) 3366 8912"
+    },
+    {
+      "name": "Katina Michael",
+      "title": "Honorary Professor",
+      "email": "Katina@uow.edu.au"
+    },
+    {
+      "name": "Christine Gillies",
+      "title": "Clinical Psychologist",
+      "phone": "0435741817"
+    }
+  ]
+}
