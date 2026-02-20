@@ -157,9 +157,26 @@ ${truncated}
 `;
   })() : "";
 
+  // Unconditional portfolio base instruction — fires whenever a portfolio URL exists regardless of portfolioJson
+  const portfolioBaseSection = personalInfo?.portfolio && !portfolioJson ? `
+PORTFOLIO INSTRUCTION — MANDATORY:
+The candidate has a portfolio at: ${personalInfo.portfolio}
+This portfolio contains pages and sections dedicated to specific projects, skills, and work samples.
+REQUIREMENT: You MUST embed at least 3–5 inline portfolio hyperlinks throughout the resume in relevant bullet points and descriptions.
+When writing about specific projects, implementations, deliverables, tools used, or skills demonstrated, embed a descriptive inline link using the format:
+[PORTFOLIO_LINK text="Descriptive phrase naming the specific project or skill area" url="${personalInfo.portfolio}"]
+Rules:
+- The "text" MUST be the specific project name, technology, or area demonstrated — e.g. "AI resume tailoring engine", "data pipeline automation", "UX redesign for client portal"
+- NEVER use generic text like "view in portfolio", "click here", "portfolio", or "my work"
+- Embed the link inline within the bullet point sentence, not as a standalone item
+- Use the portfolio URL as the base; append relevant path segments if logical (e.g. ${personalInfo.portfolio}/projects)
+- If a bullet mentions a specific project or tool that would be demonstrated in a portfolio, it MUST have a portfolio link
+` : "";
+
   let prompt: string;
 
   if (docType === "resume") {
+
     prompt = `You are a Professional Resume Architect. Create a highly targeted, ATS-optimized resume that showcases this candidate's qualifications for the specific job opportunity.
 
 ${candidateInfo}
@@ -169,6 +186,7 @@ ${jobInfo}
 ${exampleSection}
 
 ${portfolioSection}
+${portfolioBaseSection}
 
 Today's date: ${today}
 
@@ -194,6 +212,14 @@ You have been provided ${educationArray.length} education entries, ${certificati
 - NEVER write "Not provided" anywhere in the output.
 - Do NOT invent, fabricate, or add any education, certification, or reference that is not in the data above or RAW RESUME TEXT.
 
+NO DUPLICATION RULE — EACH FACT APPEARS ONCE ONLY:
+- Every specific metric, achievement, or outcome must appear in EXACTLY ONE section. Choose the best section for it and do not repeat it anywhere else.
+- Work Experience: describes day-to-day responsibilities and job-specific outcomes for each role only.
+- Key Achievements: lists only the 4–6 most impressive career-level highlights that are NOT already mentioned in Work Experience bullets.
+- Core Competencies: skill category names and tool names ONLY — absolutely no metrics, no "achieved X%", no named projects, no outcomes.
+- Professional Summary: may reference ONE standout achievement at most, and only briefly. If an achievement is in the Summary it must NOT appear again in Achievements or Work Experience.
+- RULE: If a specific fact (e.g. "achieved a perfect score", "reduced costs by 30%", a named project) appears in one section, it is FORBIDDEN from all other sections.
+
 PORTFOLIO LINKS: If portfolio data is provided and you reference a project or piece of work from it, use the format [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in the sentence — where "text" is a specific, meaningful description of the linked content (e.g. the project name). NEVER use generic phrases like "view in portfolio".
 
 Output ONLY the resume content in plain text with clear section headers. No HTML or markdown.`;
@@ -207,6 +233,7 @@ ${jobInfo}
 ${exampleSection}
 
 ${portfolioSection}
+${portfolioBaseSection}
 
 Today's date: ${today}
 
@@ -219,7 +246,7 @@ Generate a professional cover letter that:
 3. Weaves 2–3 specific, concrete achievements from the candidate's background into the body paragraphs — integrate them naturally into prose, do NOT use a bullet list or boxed summary
 4. Closes confidently with a clear call to action
 5. Is formatted as a proper business letter with today's date
-6. If portfolio data is provided, embed portfolio references as [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in sentences — not as standalone bullet points
+6. If a portfolio URL is available, embed 1–2 portfolio references as [PORTFOLIO_LINK text="Descriptive Name" url="..."] inline in sentences — not as standalone bullet points
 
 TONE RULES — WRITE LIKE A HUMAN, NOT AN AI:
 - Use specific, concrete language. Name the actual tools, projects, outcomes.
@@ -273,15 +300,18 @@ function buildReferencesHTML(references: Reference[]): string {
   for (let i = 0; i < references.length; i += 2) {
     const ref1 = references[i];
     const ref2 = references[i + 1];
-    const cellStyle = 'width:50%;padding:8px;vertical-align:top;';
-    const entryStyle = 'background-color:#f7fafc;padding:12px;border:1px solid #e2e8f0;';
-    const cell1 = `<td style="${cellStyle}"><div style="${entryStyle}"><div style="font-weight:600;color:#2c5282;">${ref1.name}</div><div style="font-size:10pt;color:#4a5568;">${ref1.title}</div><div style="font-size:9pt;color:#4a5568;margin-top:5px;">${ref1.contact}</div></div></td>`;
-    const cell2 = ref2
-      ? `<td style="${cellStyle}"><div style="${entryStyle}"><div style="font-weight:600;color:#2c5282;">${ref2.name}</div><div style="font-size:10pt;color:#4a5568;">${ref2.title}</div><div style="font-size:9pt;color:#4a5568;margin-top:5px;">${ref2.contact}</div></div></td>`
-      : `<td style="${cellStyle}"></td>`;
+    const cellStyle = 'width:50%;padding:6px;vertical-align:top;';
+    const entryStyle = 'background-color:#f7fafc;padding:10px 12px;border:1px solid #e2e8f0;line-height:1.3;';
+    const nameStyle = 'font-weight:600;color:#2c5282;margin:0;padding:0;line-height:1.3;';
+    const titleStyle = 'font-size:10pt;color:#4a5568;margin:0;padding:0;line-height:1.3;';
+    const contactStyle = 'font-size:9pt;color:#4a5568;margin:0;padding:0;margin-top:2px;line-height:1.3;';
+    const buildCell = (ref: Reference) =>
+      `<td style="${cellStyle}"><div style="${entryStyle}"><div style="${nameStyle}">${ref.name}</div><div style="${titleStyle}">${ref.title}</div><div style="${contactStyle}">${ref.contact}</div></div></td>`;
+    const cell1 = buildCell(ref1);
+    const cell2 = ref2 ? buildCell(ref2) : `<td style="${cellStyle}"></td>`;
     rows.push(`<tr>${cell1}${cell2}</tr>`);
   }
-  return `<div class="section"><div class="section-title">References</div><table style="width:100%;border-collapse:collapse;">${rows.join("")}</table></div>`;
+  return `<!-- REFERENCES_BLOCK_START --><div class="section"><div class="section-title">References</div><table style="width:100%;border-collapse:collapse;">${rows.join("")}</table></div><!-- REFERENCES_BLOCK_END -->`;
 }
 
 async function formatWithClaude(
@@ -838,12 +868,19 @@ ${styledExampleText}
   // Pre-build references HTML to inject directly (ensures they are never omitted)
   const referencesHTML = references && references.length > 0 ? buildReferencesHTML(references) : "";
 
-  // Portfolio link conversion instructions
-  const portfolioLinkSection = portfolioJson ? `
-## PORTFOLIO LINK CONVERSION:
-The content may contain markers like [PORTFOLIO_LINK text="Descriptive Name" url="https://..."]. Convert each one into a clickable inline hyperlink embedded naturally in the surrounding sentence:
-<a href="url" target="_blank" style="color:#3182ce;text-decoration:none;">Descriptive Name</a>
-Use the "text" attribute value as the visible link text. Remove the marker and replace it with the hyperlink inline — do NOT add "view in portfolio" or any generic label.
+  // Portfolio link conversion instructions — fires whenever portfolioJson exists OR personalInfo.portfolio exists
+  const hasPortfolio = !!portfolioJson || !!personalInfo?.portfolio;
+  const portfolioLinkSection = hasPortfolio ? `
+## PORTFOLIO LINK CONVERSION — MANDATORY:
+The content contains markers like [PORTFOLIO_LINK text="Descriptive Name" url="https://..."]. You MUST convert EVERY such marker into a clickable inline hyperlink embedded naturally in the surrounding sentence.
+Conversion format: <a href="URL_FROM_MARKER" target="_blank" style="color:#3182ce;text-decoration:none;">TEXT_FROM_MARKER</a>
+Rules:
+- Use the exact "text" attribute value as the visible link text
+- Use the exact "url" attribute value as the href
+- Remove the marker entirely and replace it with the hyperlink inline in the sentence
+- Do NOT add "view in portfolio", "click here", or any generic label
+- Do NOT convert markers into standalone lines — they must remain part of the surrounding sentence
+- If no markers exist but personalInfo contains a portfolio URL (${personalInfo?.portfolio || ''}), you may add 1–2 natural inline hyperlinks to specific, relevant sentences
 ` : "";
 
   const isCoverLetter = docType.toLowerCase().includes("cover");
@@ -995,7 +1032,7 @@ For the header section, you MUST include this EXACT HTML structure:
 5. Education (.education-entry)
 6. Certifications (.certification-entry)
 7. Key Achievements (.achievements-list)
-8. References - PASTE THIS EXACT PRE-BUILT HTML AT THE END (do not modify it):
+8. References - Copy the REFERENCES_BLOCK_START...REFERENCES_BLOCK_END HTML below EXACTLY as-is into the output. Do NOT modify any inline styles, do NOT add whitespace, do NOT add <br> tags, do NOT reformat it. The inline styles already control all spacing — any modification will cause layout issues:
 ${referencesHTML || "<!-- No references provided -->"}
 
 ### Output Format:
