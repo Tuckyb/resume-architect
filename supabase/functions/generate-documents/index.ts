@@ -157,20 +157,47 @@ ${truncated}
 `;
   })() : "";
 
+  // Extract portfolio section anchors from crawl/portfolio JSON
+  function extractPortfolioSections(pJson: Record<string, unknown> | null | undefined): string | null {
+    if (!pJson) return null;
+    // The crawl results contain markdown with links like [**Section Name**](url#anchor)
+    const jsonStr = JSON.stringify(pJson);
+    // Extract all unique URLs with anchors
+    const anchorMatches = jsonStr.match(/https?:\/\/[^"'\s)]+#[a-zA-Z0-9_-]+/g);
+    if (!anchorMatches || anchorMatches.length === 0) return null;
+    const uniqueUrls = [...new Set(anchorMatches)];
+    return uniqueUrls.map(url => `- ${url}`).join("\n");
+  }
+
+  const extractedSections = extractPortfolioSections(portfolioJson);
+  const basePortfolioUrl = personalInfo?.portfolio || "";
+
   // Unconditional portfolio base instruction — fires whenever a portfolio URL exists regardless of portfolioJson
-  const portfolioBaseSection = personalInfo?.portfolio && !portfolioJson ? `
+  const portfolioBaseSection = basePortfolioUrl ? `
 PORTFOLIO INSTRUCTION — MANDATORY:
-The candidate has a portfolio at: ${personalInfo.portfolio}
-This portfolio contains pages and sections dedicated to specific projects, skills, and work samples.
+The candidate has a portfolio at: ${basePortfolioUrl}
+This portfolio contains dedicated sections for specific projects, skills, and work samples.
 REQUIREMENT: You MUST embed at least 3–5 inline portfolio hyperlinks throughout the resume in relevant bullet points and descriptions.
 When writing about specific projects, implementations, deliverables, tools used, or skills demonstrated, embed a descriptive inline link using the format:
-[PORTFOLIO_LINK text="Descriptive phrase naming the specific project or skill area" url="${personalInfo.portfolio}"]
+[PORTFOLIO_LINK text="Descriptive phrase naming the specific project or skill area" url="EXACT_SECTION_URL"]
+
+${extractedSections ? `PORTFOLIO SECTION URLS — USE THESE EXACT URLS (do NOT use the base URL alone — always link to the specific section):
+${extractedSections}
+
+MATCHING GUIDE — pick the most relevant section URL from the list above based on the content:
+- If writing about AI tools, automation, Custom GPTs, API integrations → use the #tools anchor URL
+- If writing about private/internal projects, AdCraft Studio, web tools → use the #private-projects anchor URL  
+- If writing about marketing strategy, services, e-commerce, technical expertise → use the #services anchor URL
+- If writing about creative work, ad creatives, A/B testing, visual assets → use the #portfolio anchor URL
+- If writing about work samples, strategy documents, case studies → use the #samples anchor URL
+` : `Use the base URL: ${basePortfolioUrl} — append the most relevant path or anchor for the content being described.`}
+
 Rules:
-- The "text" MUST be the specific project name, technology, or area demonstrated — e.g. "AI resume tailoring engine", "data pipeline automation", "UX redesign for client portal"
-- NEVER use generic text like "view in portfolio", "click here", "portfolio", or "my work"
-- Embed the link inline within the bullet point sentence, not as a standalone item
-- Use the portfolio URL as the base; append relevant path segments if logical (e.g. ${personalInfo.portfolio}/projects)
-- If a bullet mentions a specific project or tool that would be demonstrated in a portfolio, it MUST have a portfolio link
+- The "text" MUST be the specific project name, technology, or skill area demonstrated — e.g. "AI Marketing Automation Suite", "Custom GPT Development", "Campaign Performance Dashboard"
+- NEVER use generic text like "view in portfolio", "click here", "portfolio", "my work", or "see here"
+- Embed the link INLINE within the bullet point sentence — not as a standalone line item
+- ALWAYS use a specific section URL (with #anchor) — NEVER link to just the homepage
+- If a bullet mentions a specific project, tool, or skill that would be demonstrated in the portfolio, it MUST have a portfolio link
 ` : "";
 
   let prompt: string;
@@ -217,8 +244,9 @@ NO DUPLICATION RULE — EACH FACT APPEARS ONCE ONLY:
 - Work Experience: describes day-to-day responsibilities and job-specific outcomes for each role only.
 - Key Achievements: lists only the 4–6 most impressive career-level highlights that are NOT already mentioned in Work Experience bullets.
 - Core Competencies: skill category names and tool names ONLY — absolutely no metrics, no "achieved X%", no named projects, no outcomes.
-- Professional Summary: may reference ONE standout achievement at most, and only briefly. If an achievement is in the Summary it must NOT appear again in Achievements or Work Experience.
+- Professional Summary: describes who the candidate is and what value they bring — max 2–4 sentences, NO specific metrics, NO achievements, NO named projects.
 - RULE: If a specific fact (e.g. "achieved a perfect score", "reduced costs by 30%", a named project) appears in one section, it is FORBIDDEN from all other sections.
+- ACADEMIC SCORES RULE (ABSOLUTE): Any grade, score, distinction, award, or academic recognition (e.g. "100/100", "perfect score", "distinction", "most improved", "top graduating") belongs ONLY in the Education section. NEVER include academic scores or academic awards in the Professional Summary, Key Achievements, or any other section. The Professional Summary MUST NOT mention grades, scores, or academic awards under ANY circumstance.
 
 PORTFOLIO LINKS: If portfolio data is provided and you reference a project or piece of work from it, use the format [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in the sentence — where "text" is a specific, meaningful description of the linked content (e.g. the project name). NEVER use generic phrases like "view in portfolio".
 
@@ -532,7 +560,8 @@ body {
 .reference-contact {
   font-size: 9pt;
   color: #4a5568;
-  margin-top: 5px;
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .reference-contact a {
