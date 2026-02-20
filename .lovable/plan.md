@@ -1,98 +1,69 @@
 
-# Fix: Education, Certifications, References Missing + Generic Summary
+# Fix: References Whitespace + Portfolio Links + Content Repetition
 
-## Exact Root Causes Identified
+## Root Cause Analysis
 
-### Root Cause 1: "Not provided" fallback is poisoning the prompt
+### Issue 1 — References: Whitespace gaps between name and contact details
+The `buildReferencesHTML` function (lines 270–285) builds the references cards with correct tight inline styles. However, this pre-built HTML string is injected into the formatter prompt as a raw string at line 998–999. Claude is instructed to "PASTE THIS EXACT PRE-BUILT HTML AT THE END (do not modify it)" — but Claude sometimes interprets multi-line HTML strings in prompts and re-formats them with extra whitespace or inserts `<br>` tags.
 
-In `generateWithClaude`, the `candidateInfo` block uses this pattern:
-```
-EDUCATION:
-${educationArray.map(...).join("\n") || "Not provided"}
-```
+The fix is two-part:
+1. Tighten the inline styles in `buildReferencesHTML` so there is literally zero margin/padding between lines — using `line-height: 1.2` and `margin: 0` on each div
+2. Mark the references HTML with a special comment so the formatter instruction is clearer: "paste as-is with zero modification"
 
-When `educationArray` is `[]` (an empty array from JSON that had data but got mapped wrong), `.map().join()` returns `""` (empty string), which is falsy — so it falls back to the literal string `"Not provided"`. Claude then sees `"Not provided"` and writes exactly that in the output.
+### Issue 2 — Portfolio links not appearing in output
+The portfolio link instructions in `generateWithClaude` are gated behind `if (portfolioJson)` at line 149. If the user's portfolio URL is in their `personalInfo.portfolio` field but they haven't uploaded a portfolio JSON separately, `portfolioJson` is `null` — so no portfolio link instructions are added to the prompt at all. The AI never generates `[PORTFOLIO_LINK ...]` markers, so there are zero inline links.
 
-The same pattern affects Certifications and References.
+The fix: Add a second, unconditional portfolio instruction block that fires whenever `personalInfo.portfolio` exists. This block tells the AI:
+> "The candidate has a portfolio at [URL]. When describing work, projects, or skills that would be demonstrated there, embed a descriptive inline hyperlink to specific sections of that URL. Use format `[PORTFOLIO_LINK text="Descriptive Text" url="URL/section"]`. Never use generic text like 'view here'."
 
-### Root Cause 2: The VERBATIM RULE is being undermined by the fallback
+And update the formatter conversion logic to always process `[PORTFOLIO_LINK ...]` markers regardless of whether `portfolioJson` was provided.
 
-The existing `VERBATIM RULE` says: *"If the EDUCATION section above is empty but the RAW RESUME TEXT contains education data, extract and list it verbatim."* — but by the time Claude reads this, the EDUCATION field already says `"Not provided"` (even if data exists), so Claude treats the rawText fallback as a last resort and often skips it.
+### Issue 3 — Content repeating across sections (e.g. same achievement in 3 places)
+The current generation prompt has no "section isolation" rule. The AI freely mentions an achievement (like "perfect score") in the Work Experience bullet, then again in Core Competencies, then again in Key Achievements — because nothing stops it.
 
-### Root Cause 3: Professional summary is generic and long
+The fix: Add an explicit "NO DUPLICATION" rule to the prompt:
+> "Each specific fact, metric, or achievement must appear in EXACTLY ONE section. Decide which section owns it and do not repeat it elsewhere. Work Experience owns job-specific outcomes. Key Achievements owns top-level career highlights. Core Competencies owns skill categories only — no metrics or specific achievements."
 
-The resume prompt only says: *"Has a strong professional summary tailored to the role"* — no length constraint, no instruction to reference the actual job description requirements. Claude defaults to a long, generic paragraph.
+## Technical Changes (all in `supabase/functions/generate-documents/index.ts`)
 
-### Root Cause 4: References section is duplicated but fragile
+### Change 1 — Fix `buildReferencesHTML` (lines 270–285)
+Tighten the per-entry inline styles so every div has `margin:0; padding:0` between name, title, and contact — removing any gap that Claude or the browser might interpret as spacing. Change `margin-top: 5px` on the contact div to `margin-top: 3px` and ensure all divs in the reference card use explicit `line-height: 1.3`.
 
-References are attempted twice:
-1. In `generateWithClaude` (via the text prompt — unreliable)
-2. In `formatWithClaude` via pre-built HTML injected at the end
+Also add a clearer wrapper comment like `<!-- REFERENCES_BLOCK_START -->` and `<!-- REFERENCES_BLOCK_END -->` so the formatter prompt instruction can reference it precisely.
 
-But if the `referencesArray` in step 1 shows "Not provided", the formatter may see no reference section to replace and might not insert the pre-built HTML correctly.
+### Change 2 — Add unconditional portfolio instruction (around line 149)
+Add a new `portfolioBaseSection` block that fires when `personalInfo?.portfolio` is truthy (regardless of `portfolioJson`):
 
----
-
-## Fixes (all in `supabase/functions/generate-documents/index.ts`)
-
-### Fix 1: Remove the "Not provided" fallback text — replace with empty/omit
-
-Change every section's fallback from `|| "Not provided"` to `|| ""` so Claude doesn't see a false "Not provided" label for data that may be in the rawText. Instead, add an explicit note when data IS present:
-
-**Current (broken):**
 ```typescript
-EDUCATION:
-${educationArray.map(...).join("\n") || "Not provided"}
+const portfolioBaseSection = personalInfo?.portfolio ? `
+PORTFOLIO INSTRUCTION:
+The candidate's portfolio is at: ${personalInfo.portfolio}
+When writing bullet points about specific projects, implementations, or deliverables that a portfolio would showcase, embed a descriptive inline link using the format:
+[PORTFOLIO_LINK text="Descriptive phrase about what the reader will see" url="${personalInfo.portfolio}"]
+The "text" should name the specific project or skill area demonstrated — never use "view in portfolio", "click here", or similar generic text.
+` : "";
 ```
 
-**Fixed:**
-```typescript
-EDUCATION (${educationArray.length} entries — copy VERBATIM):
-${educationArray.length > 0 
-  ? educationArray.map(edu => `${edu.degree} - ${edu.institution} (${edu.period})`).join("\n")
-  : "(not in structured data — extract from RAW RESUME TEXT below)"}
-```
+Append `portfolioBaseSection` to the prompt in both the resume and cover-letter branches.
 
-Same fix applied to Certifications and References — making the count visible tells Claude definitively whether data exists.
+### Change 3 — Always process `[PORTFOLIO_LINK ...]` markers in formatter
+The `portfolioLinkSection` in `formatWithClaude` is also gated behind `if (portfolioJson)` at line 842. Change this so the conversion instruction is always included if the content contains a `[PORTFOLIO_LINK` marker OR if `personalInfo?.portfolio` is truthy.
 
-### Fix 2: Strengthen the VERBATIM RULE with entry counts
-
-Add the counts directly into the prompt so Claude cannot claim the data is absent:
+### Change 4 — Add NO DUPLICATION rule to the resume generation prompt (around line 188)
+Insert after the VERBATIM RULE block:
 
 ```
-VERBATIM RULE — DATA FIDELITY IS MANDATORY:
-- You have been provided ${educationArray.length} education entries, ${certificationsArray.length} certifications, and ${referencesArray.length} references.
-- EDUCATION: All ${educationArray.length} entries listed above MUST appear in the output. Copy degree, institution, and period exactly.
-- CERTIFICATIONS: All ${certificationsArray.length} certifications listed above MUST appear exactly as written.
-- REFERENCES: All ${referencesArray.length} references listed above MUST appear with full name, title, and contact details.
-- If a count above is 0, check the RAW RESUME TEXT and extract those sections from it verbatim.
-- NEVER write "Not provided" in the document output.
+NO DUPLICATION RULE — EACH FACT APPEARS ONCE ONLY:
+- Every specific metric, achievement, or outcome must appear in EXACTLY ONE section.
+- Work Experience: describes responsibilities and job-specific outcomes for each role.
+- Key Achievements: lists only the 4–6 most impressive career-level highlights (not already in Work Experience).
+- Core Competencies: skill categories and tool names ONLY — no metrics, no "achieved X%", no named projects.
+- Professional Summary: may mention ONE standout achievement at most, briefly.
+- If a fact is mentioned in Work Experience, it must NOT be repeated in Achievements or Summary.
 ```
 
-### Fix 3: Professional Summary — add length and specificity constraints
+### Change 5 — Redeploy the edge function
+After all changes are saved, the function is deployed automatically.
 
-Replace the vague instruction with:
-```
-1. Write a CONCISE professional summary of 2–4 sentences MAXIMUM. 
-   - Sentence 1: Who the candidate is (their core professional identity from their experience)
-   - Sentence 2: What they bring specifically relevant to the ${job.position} role (use keywords from the JOB DESCRIPTION above)
-   - Sentence 3 (optional): One specific, concrete achievement or differentiator
-   - Do NOT write a generic paragraph. Do NOT use more than 4 sentences. No buzzwords.
-```
-
-### Fix 4: Ensure rawText is always used as a fallback extraction source
-
-Add an explicit instruction that when structured arrays have 0 entries, Claude MUST scan the `rawText` section and extract the data from there. The rawText is already present in the prompt — just make the instruction stronger and conditional on count being 0.
-
----
-
-## Technical Changes
-
-**File:** `supabase/functions/generate-documents/index.ts`
-
-1. **Lines 114–130** (the `candidateInfo` template): Replace `|| "Not provided"` with count-aware labels and explicit empty messages
-2. **Lines 179** (Professional Summary instruction): Add 2–4 sentence limit and specific structure requirement  
-3. **Lines 185–190** (VERBATIM RULE): Add entry counts into the rule text, add "NEVER write 'Not provided'" instruction
-4. **Redeploy** the edge function
-
-No other files need changing — this is entirely a prompt engineering fix in the one edge function.
+## Files to Edit
+- `supabase/functions/generate-documents/index.ts` — Changes 1 through 4 above, then redeploy
