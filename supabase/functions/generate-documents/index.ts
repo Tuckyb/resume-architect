@@ -79,18 +79,70 @@ async function generateWithClaude(
 ): Promise<string> {
   console.log(`Generating ${docType} content with Claude...`);
 
-  const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
+  // The resume object may come from either ParsedResumeData (interface fields) OR
+  // directly from a user-uploaded JSON (thomas_information_updated.json style).
+  // We resolve both naming conventions with alias helpers throughout.
+  const raw = resume as any;
 
-  const skillsArray = Array.isArray(skills) ? skills : [];
-  const skillsText = skillsArray.map(s => `${s.category}: ${Array.isArray(s.items) ? s.items.join(", ") : String(s.items)}`).join("\n");
-  
-  const workExpArray = Array.isArray(workExperience) ? workExperience : [];
-  const educationArray = Array.isArray(education) ? education : [];
-  const certificationsArray = Array.isArray(certifications) ? certifications : [];
-  const achievementsArray = Array.isArray(achievements) ? achievements : [];
-  const referencesArray = Array.isArray(references) ? references : [];
+  // --- Personal info: supports both "personalInfo" and "personal" keys ---
+  const personalInfo = raw.personalInfo || raw.personal || {};
+  const fullName   = personalInfo.fullName   || personalInfo.name   || "";
+  const email      = personalInfo.email      || "";
+  const phone      = personalInfo.phone      || "";
+  const address    = personalInfo.address    || "";
+  const linkedIn   = personalInfo.linkedIn   || personalInfo.linkedin || "";
+  const portfolio  = personalInfo.portfolio  || "";
 
-  const referencesText = referencesArray.map(ref => 
+  // --- Field alias helpers for work experience ---
+  const getExpTitle  = (exp: any) => exp.title   || exp.jobTitle  || "";
+  const getExpPeriod = (exp: any) => exp.period   || exp.duration  || (exp.year ? String(exp.year) : "");
+
+  // --- Field alias helpers for education ---
+  const getEduPeriod = (edu: any) => edu.period || edu.duration || (edu.year ? String(edu.year) : "");
+  const getEduStatus = (edu: any) => edu.status ? ` (${edu.status})` : "";
+
+  // --- Arrays ---
+  const workExpArray      = Array.isArray(raw.workExperience) ? raw.workExperience : [];
+  const educationArray    = Array.isArray(raw.education)      ? raw.education      : [];
+  const certRaw           = raw.certifications;
+  const certificationsArray = Array.isArray(certRaw) ? certRaw : [];
+
+  // keyAchievements (JSON) vs achievements (interface)
+  const achievementsArray = Array.isArray(raw.achievements)
+    ? raw.achievements
+    : Array.isArray(raw.keyAchievements)
+      ? raw.keyAchievements
+      : [];
+
+  // --- References: supports both array-of-{name,title,contact} and array-of-{name,title,phone,email} ---
+  const referencesRaw = Array.isArray(raw.references) ? raw.references : [];
+  const referencesArray: Reference[] = referencesRaw.map((r: any) => ({
+    name:    r.name    || "",
+    title:   r.title   || "",
+    contact: r.contact || r.phone || r.email || "",
+  }));
+
+  // --- Skills: supports both array [{category,items}] and plain object {categoryKey: string[]} ---
+  let skillsText = "";
+  if (Array.isArray(raw.skills)) {
+    skillsText = raw.skills.map((s: any) => `${s.category}: ${Array.isArray(s.items) ? s.items.join(", ") : String(s.items)}`).join("\n");
+  } else if (raw.skills && typeof raw.skills === "object") {
+    skillsText = Object.entries(raw.skills).map(([cat, items]) =>
+      `${cat}: ${Array.isArray(items) ? (items as string[]).join(", ") : String(items)}`
+    ).join("\n");
+  }
+
+  // --- Professional development (LinkedIn Learning, AI courses) ---
+  const profDev       = raw.professionalDevelopment;
+  const linkedInCourses: any[] = profDev?.linkedinLearning || [];
+  const aiCourses: any[]       = profDev?.schoolCommunityTrainings?.trainings || [];
+
+  const profDevText = [
+    ...linkedInCourses.map((c: any) => `• ${c.course} (LinkedIn Learning)${c.certificateLink ? ` — Certificate: ${c.certificateLink}` : ""}`),
+    ...aiCourses.map((c: any) => `• ${c.course} — ${c.provider}${c.instructor ? ` (Instructor: ${c.instructor})` : ""}`),
+  ].join("\n");
+
+  const referencesText = referencesArray.map(ref =>
     `- ${ref.name} | ${ref.title} | ${ref.contact}`
   ).join("\n");
 
@@ -98,35 +150,42 @@ async function generateWithClaude(
 
   const candidateInfo = `
 CANDIDATE INFORMATION:
-- Full Name: ${personalInfo?.fullName || "(extract from raw text)"}
-- Email: ${personalInfo?.email || "(extract from raw text)"}
-- Phone: ${personalInfo?.phone || "(extract from raw text)"}
-- Address: ${personalInfo?.address || "(extract from raw text)"}
-- LinkedIn: ${personalInfo?.linkedIn || "(extract from raw text)"}
-- Portfolio: ${personalInfo?.portfolio || "(extract from raw text)"}
+- Full Name: ${fullName || "(extract from raw text)"}
+- Email: ${email || "(extract from raw text)"}
+- Phone: ${phone || "(extract from raw text)"}
+- Address: ${address || "(extract from raw text)"}
+- LinkedIn: ${linkedIn || "(extract from raw text)"}
+- Portfolio: ${portfolio || "(extract from raw text)"}
 
-WORK EXPERIENCE (${workExpArray.length} entries — copy VERBATIM):
-${workExpArray.length > 0 ? workExpArray.map(exp => `
-${exp.title} at ${exp.company} (${exp.period})
-${Array.isArray(exp.responsibilities) ? exp.responsibilities.map(r => `• ${r}`).join("\n") : exp.responsibilities}
+WORK EXPERIENCE (${workExpArray.length} entries — copy VERBATIM, do NOT paraphrase or add detail):
+${workExpArray.length > 0 ? workExpArray.map((exp: any) => `
+${getExpTitle(exp)} at ${exp.company} (${getExpPeriod(exp)})
+${Array.isArray(exp.responsibilities) ? exp.responsibilities.map((r: string) => `• ${r}`).join("\n") : exp.responsibilities}
 `).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
-EDUCATION (${educationArray.length} entries — copy VERBATIM):
-${educationArray.length > 0 ? educationArray.map(edu => `
-${edu.degree} - ${edu.institution} (${edu.period})
-${Array.isArray(edu.achievements) ? edu.achievements.map(a => `• ${a}`).join("\n") : ""}
+EDUCATION (${educationArray.length} entries — copy VERBATIM, exactly as written):
+${educationArray.length > 0 ? educationArray.map((edu: any) => `
+${edu.degree} - ${edu.institution} (${getEduPeriod(edu)}${getEduStatus(edu)})
+${Array.isArray(edu.achievements) ? edu.achievements.map((a: string) => `• ${a}`).join("\n") : ""}
 `).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
 SKILLS:
 ${skillsText || "(extract from RAW RESUME TEXT below)"}
 
-CERTIFICATIONS (${certificationsArray.length} entries — copy VERBATIM):
-${certificationsArray.length > 0 ? certificationsArray.join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
+CERTIFICATIONS (${certificationsArray.length} entries — copy VERBATIM exactly as written below, do NOT rephrase):
+${certificationsArray.length > 0 ? certificationsArray.map((c: any) => {
+    if (typeof c === "string") return `• ${c}`;
+    const title = c.title || c.name || String(c);
+    const issuer = c.issuer ? ` — ${c.issuer}` : "";
+    const yr = c.year ? ` (${c.year})` : "";
+    return `• ${title}${issuer}${yr}`;
+  }).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
+${profDevText ? `\nPROFESSIONAL DEVELOPMENT / LINKEDIN LEARNING (include these in the Certifications or a separate Professional Development section):\n${profDevText}` : ""}
 
-ACHIEVEMENTS (${achievementsArray.length} entries):
-${achievementsArray.length > 0 ? achievementsArray.map(a => `• ${a}`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
+KEY ACHIEVEMENTS (${achievementsArray.length} entries — ONLY career-level highlights, NO academic scores):
+${achievementsArray.length > 0 ? achievementsArray.map((a: any) => `• ${typeof a === "string" ? a : (a.achievement || a.title || String(a))}`).join("\n") : "(not in structured data — extract from RAW RESUME TEXT below)"}
 
-REFERENCES (${referencesArray.length} entries — copy VERBATIM):
+REFERENCES (${referencesArray.length} entries — copy VERBATIM, full name + title + contact):
 ${referencesArray.length > 0 ? referencesText : "(not in structured data — extract from RAW RESUME TEXT below)"}
 `;
 
@@ -170,7 +229,7 @@ ${truncated}
   }
 
   const extractedSections = extractPortfolioSections(portfolioJson);
-  const basePortfolioUrl = personalInfo?.portfolio || "";
+  const basePortfolioUrl = portfolio || "";
 
   // Unconditional portfolio base instruction — fires whenever a portfolio URL exists regardless of portfolioJson
   const portfolioBaseSection = basePortfolioUrl ? `
@@ -220,32 +279,39 @@ Today's date: ${today}
 RAW RESUME TEXT (use this as the primary source of truth if structured data above is missing):
 ${resume.rawText}
 
+ANTI-HALLUCINATION RULE — ABSOLUTE (read this before writing anything):
+- You may ONLY state facts that are explicitly written in CANDIDATE INFORMATION or RAW RESUME TEXT above.
+- Do NOT infer, calculate, or extrapolate. Do NOT write "4+ years", "10+ years", "17+ years", or any years-of-experience figure unless that exact phrase appears verbatim in the source data.
+- Do NOT add environment descriptors like "B2B environments", "agency settings", "enterprise-level", "consumer markets" unless those exact words appear in the source data.
+- Do NOT add implied skills or technologies not explicitly listed. If unsure whether something exists in the data, omit it.
+- The source data is the ONLY source of truth. Your own inference is forbidden.
+
 Generate a complete, professional resume that:
 1. PROFESSIONAL SUMMARY — Write EXACTLY 2–4 sentences. No more.
-   - Sentence 1: Who the candidate is based on their actual experience (job titles, industry, years of experience)
+   - Sentence 1: Who the candidate is — state their most recent job title(s) and field only. Do NOT calculate or state years of experience. Do NOT add descriptors like "B2B", "agency", "enterprise", or "consumer" unless those exact words appear in the WORK EXPERIENCE data above. Only use what is explicitly written.
    - Sentence 2: What specific value they bring to the ${job.position} role at ${job.companyName} — use 2–3 actual keywords from the JOB DESCRIPTION above
-   - Sentence 3 (optional): One specific, concrete achievement with a number or outcome
+   - Sentence 3 (optional): One specific, concrete achievement with a measurable outcome — ONLY if it appears verbatim in KEY ACHIEVEMENTS or WORK EXPERIENCE above. Do NOT invent one.
    - NEVER write a generic paragraph. NEVER use buzzwords like "dynamic", "passionate", "results-driven", "synergy", "leverage". Write like a human.
 2. Highlights relevant skills and experience that match the job description
 3. Uses industry keywords from the job posting
-4. Presents work experience with strong action verbs and quantified achievements
+4. Presents work experience with strong action verbs — use ONLY the bullet points from WORK EXPERIENCE above, do NOT paraphrase or expand them
 5. Is organised with clear sections: Professional Summary, Core Competencies, Professional Experience, Education, Certifications, Key Achievements, References
 
 VERBATIM RULE — DATA FIDELITY IS MANDATORY:
 You have been provided ${educationArray.length} education entries, ${certificationsArray.length} certifications, and ${referencesArray.length} references in the structured data above.
-- EDUCATION: ALL ${educationArray.length} education entries listed above MUST appear in the output. Copy degree, institution, and period exactly. If count is 0, scan the RAW RESUME TEXT below and extract all education entries from it verbatim.
-- CERTIFICATIONS: ALL ${certificationsArray.length} certifications listed above MUST appear exactly as written. If count is 0, scan the RAW RESUME TEXT below and extract all certifications from it verbatim.
-- REFERENCES: ALL ${referencesArray.length} references listed above MUST appear with full name, title, and contact details. If count is 0, scan the RAW RESUME TEXT below and extract all references from it verbatim.
+- EDUCATION: ALL ${educationArray.length} education entries listed above MUST appear in the output. Copy degree, institution, and period EXACTLY as written — no paraphrasing. If count is 0, scan the RAW RESUME TEXT below and extract all education entries from it verbatim.
+- CERTIFICATIONS: ALL ${certificationsArray.length} certifications listed above MUST appear exactly as written — copy the title and issuer verbatim, do NOT rephrase. If count is 0, scan the RAW RESUME TEXT below and extract all certifications from it verbatim.
+- REFERENCES: ALL ${referencesArray.length} references listed above MUST appear with full name, title, and contact details exactly as written. If count is 0, scan the RAW RESUME TEXT below and extract all references from it verbatim.
 - NEVER write "Not provided" anywhere in the output.
 - Do NOT invent, fabricate, or add any education, certification, or reference that is not in the data above or RAW RESUME TEXT.
 
 NO DUPLICATION RULE — EACH FACT APPEARS ONCE ONLY:
 - Every specific metric, achievement, or outcome must appear in EXACTLY ONE section. Choose the best section for it and do not repeat it anywhere else.
-- Work Experience: describes day-to-day responsibilities and job-specific outcomes for each role only.
-- Key Achievements: lists only the 4–6 most impressive career-level highlights that are NOT already mentioned in Work Experience bullets.
+- Work Experience: use ONLY the bullet points listed under each role in WORK EXPERIENCE above. Do NOT expand or add new bullets.
+- Key Achievements: use ONLY the items listed under KEY ACHIEVEMENTS above. Do NOT copy from Work Experience. Do NOT include academic awards, grades, or distinctions.
 - Core Competencies: skill category names and tool names ONLY — absolutely no metrics, no "achieved X%", no named projects, no outcomes.
 - Professional Summary: describes who the candidate is and what value they bring — max 2–4 sentences, NO specific metrics, NO achievements, NO named projects.
-- RULE: If a specific fact (e.g. "achieved a perfect score", "reduced costs by 30%", a named project) appears in one section, it is FORBIDDEN from all other sections.
+- RULE: If a specific fact appears in one section, it is FORBIDDEN from all other sections.
 - ACADEMIC SCORES RULE (ABSOLUTE): Any grade, score, distinction, award, or academic recognition (e.g. "100/100", "perfect score", "distinction", "most improved", "top graduating") belongs ONLY in the Education section. NEVER include academic scores or academic awards in the Professional Summary, Key Achievements, or any other section. The Professional Summary MUST NOT mention grades, scores, or academic awards under ANY circumstance.
 
 PORTFOLIO LINKS: If portfolio data is provided and you reference a project or piece of work from it, use the format [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] inline in the sentence — where "text" is a specific, meaningful description of the linked content (e.g. the project name). NEVER use generic phrases like "view in portfolio".
@@ -283,10 +349,10 @@ TONE RULES — WRITE LIKE A HUMAN, NOT AN AI:
 - Write in a direct, natural voice as if the candidate wrote it themselves.
 
 The letter should be addressed from:
-${personalInfo?.fullName || "Candidate"}
-${personalInfo?.address || ""}
-${personalInfo?.phone || ""}
-${personalInfo?.email || ""}
+${fullName || "Candidate"}
+${address || ""}
+${phone || ""}
+${email || ""}
 
 Output ONLY the cover letter content in plain text format. No HTML or markdown.`;
   }
