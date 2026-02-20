@@ -1,198 +1,125 @@
 
-# Fix: Hallucinated Summary + JSON Field Mapping + Certifications Format
+# Fix: School Community Trainings Missing + Education Rendering + Summary Cleanup
 
-## Root Cause Analysis (Exact)
+## Exact Root Causes Found
 
-### Problem 1 — Summary hallucinating years/environments
+### Problem 1 — "School Community Trainings" education entry not appearing
 
-The generation prompt says:
-> "Sentence 1: Who the candidate is based on their actual experience (job titles, industry, **years of experience**)"
-
-The phrase "years of experience" causes Claude to calculate and invent a figure. It looks at the date ranges across all roles (including admin work from 2004) and fabricates "4+ years of marketing experience" or "B2B and agency environments" — neither of which is explicitly stated in the data. 
-
-**Fix:** Remove "years of experience" from the sentence 1 instruction. Replace it with: *"Sentence 1: Who the candidate is — use only their most recent job title(s) and industry/sector. Do NOT calculate or invent a years-of-experience figure. Do NOT add descriptors not explicitly stated in the data."*
-
----
-
-### Problem 2 — JSON field mapping mismatch (the main cause of data not appearing)
-
-The uploaded JSON has this structure:
+The JSON has the Skool/AI trainings as the **4th education entry** with a `trainings` array:
 ```json
-"workExperience": [{ "jobTitle": "...", "company": "...", "duration": "2022-2023", "responsibilities": [...] }]
-"education": [{ "degree": "...", "institution": "...", "duration": "2017-2024", "year": 2014, "status": "In Progress" }]
+{
+  "degree": "School Community Trainings",
+  "institution": "Skool",
+  "duration": "2024 - Present",
+  "trainings": [{ "course": "AI Foundations", "provider": "No Code Architects", ... }, ...]
+}
 ```
 
-But the edge function at line 110 reads:
+But the education rendering at line 167–169 only outputs:
 ```typescript
-exp.title      // JSON has "jobTitle" not "title" → undefined
-exp.period     // JSON has "duration" not "period" → undefined
-edu.period     // JSON has "duration"/"year" not "period" → undefined
+${edu.degree} - ${edu.institution} (${getEduPeriod(edu)}${getEduStatus(edu)})
+${Array.isArray(edu.achievements) ? edu.achievements.map(...) : ""}
 ```
 
-This means the WORK EXPERIENCE and EDUCATION blocks in the prompt show:
-```
-Marketing Strategy Consultant at Purple Patch Consulting (undefined)
-Bachelor of Commerce in Marketing - University of Wollongong (undefined)
-```
+It checks for `edu.achievements` but this entry has `edu.trainings` — so the courses are completely invisible to Claude. The entry title renders but with no content underneath, and Claude may drop it entirely or merge it with something else.
 
-Claude then "fills in" the missing period and invents context — leading to hallucinated details.
+**Fix:** Update the education mapper to also handle `trainings` arrays — output each course as a bullet point under that education entry.
 
-**Fix:** In `generateWithClaude`, add field-alias resolution that handles both formats:
+### Problem 2 — `aiCourses` extraction path is wrong
+
+Line 138 reads:
 ```typescript
-const getExpTitle = (exp: any) => exp.title || exp.jobTitle || "";
-const getExpPeriod = (exp: any) => exp.period || exp.duration || (exp.year ? String(exp.year) : "");
-const getEduPeriod = (edu: any) => edu.period || edu.duration || (edu.year ? String(edu.year) : "");
-const getEduStatus = (edu: any) => edu.status ? ` (${edu.status})` : "";
-```
-
----
-
-### Problem 3 — Certifications rendered as `[object Object]`
-
-The JSON certifications are objects:
-```json
-{ "title": "Google Analytics Basics", "issuer": "Google" }
-```
-
-But the code at line 124 does:
-```typescript
-certificationsArray.join("\n")
-```
-
-When you `.join()` an array of objects, each becomes `[object Object]`. Claude sees that and either skips them or makes up certifications.
-
-**Fix:** Replace the join with a proper map:
-```typescript
-certificationsArray.map((c: any) => {
-  if (typeof c === "string") return `• ${c}`;
-  const title = c.title || c.name || String(c);
-  const issuer = c.issuer ? ` — ${c.issuer}` : "";
-  const year = c.year ? ` (${c.year})` : "";
-  return `• ${title}${issuer}${year}`;
-}).join("\n")
-```
-
----
-
-### Problem 4 — professionalDevelopment courses not included
-
-The JSON has a `professionalDevelopment` section with LinkedIn Learning courses and AI school courses that include certificate links. These are currently not passed to the prompt at all because `ParsedResumeData` has no field for them.
-
-**Fix:** Since `parsedResumeData` is typed as `ParsedResumeData` but the JSON may contain additional fields, extract `professionalDevelopment` from the raw object using `(resume as any).professionalDevelopment`. Then build a `profDevText` string and append it to the certifications block in the prompt so the LinkedIn Learning completions show up.
-
----
-
-### Problem 5 — keyAchievements field not mapped
-
-The JSON has `keyAchievements` (camelCase) but `ParsedResumeData` has `achievements`. When JSON is loaded client-side and the field is named `keyAchievements`, it never lands in `achievements` — so `achievementsArray` is empty and Claude invents/repeats achievements.
-
-**Fix:** Add alias resolution: `const achievementsArray = Array.isArray(achievements) ? achievements : Array.isArray((resume as any).keyAchievements) ? (resume as any).keyAchievements : [];`
-
----
-
-## All Technical Changes — `supabase/functions/generate-documents/index.ts`
-
-### Change 1 — Field alias resolver (after line 91, inside `generateWithClaude`)
-
-Add helper aliases that handle both the standard interface field names AND the JSON field names used in the uploaded file:
-
-```typescript
-// Field alias helpers — handle both ParsedResumeData interface names and JSON field names
-const getExpTitle = (exp: any) => exp.title || exp.jobTitle || "";
-const getExpPeriod = (exp: any) => exp.period || exp.duration || (exp.year ? String(exp.year) : "");
-const getEduPeriod = (edu: any) => edu.period || edu.duration || (edu.year ? String(edu.year) : "");
-const getEduStatus = (edu: any) => edu.status ? ` (${edu.status})` : "";
-
-// Also handle keyAchievements vs achievements naming
-const achievementsArray = Array.isArray(achievements) 
-  ? achievements 
-  : Array.isArray((resume as any).keyAchievements) 
-    ? (resume as any).keyAchievements 
-    : [];
-
-// Extract professionalDevelopment if present
-const profDev = (resume as any).professionalDevelopment;
-const linkedInCourses = profDev?.linkedinLearning || [];
 const aiCourses = profDev?.schoolCommunityTrainings?.trainings || [];
 ```
 
-### Change 2 — Update workExperience mapping (line 109–112)
+This looks for `professionalDevelopment.schoolCommunityTrainings.trainings` — but that path doesn't exist in the JSON. The trainings are inside the `education` array, not `professionalDevelopment`. So `aiCourses` is always an empty array and the School Community trainings never appear in the `profDevText` either.
+
+**Fix:** When building `profDevText`, also iterate over education entries that have a `trainings` array and include their courses there.
+
+### Problem 3 — Professional Summary still hallucinating
+
+Looking at the output:
+> "Marketing Strategy Consultant and Marketing Intern with expertise in SEO optimization..."
+
+The summary is copy-pasting job titles (which is allowed) but adding "expertise in SEO" as a characterisation that comes from inferring across the bullet points. The instruction at line 291 says:
+> "Sentence 1: Who the candidate is — state their most recent job title(s) and field only."
+
+The problem is "and field only" is vague — Claude interprets "field" as permission to describe expertise. The fix is to be more literal:
+> "Sentence 1: State the candidate's most recent job title(s) ONLY — copied exactly from the top 1–2 entries in WORK EXPERIENCE above. Do NOT describe expertise, fields, or specialisations in this sentence."
+
+### Problem 4 — LinkedIn Learning courses missing from output
+
+The `profDevText` only includes `linkedInCourses` (from `professionalDevelopment.linkedinLearning`) and `aiCourses` (from the wrong path). The 4 LinkedIn Learning courses DO exist in the JSON (`professionalDevelopment.linkedinLearning`) and SHOULD appear — but looking at the output they are absent from Certifications. This is because the prompt at line 183 says "include these in the Certifications or a separate Professional Development section" — but Claude is ignoring them. The instruction needs to be stronger: mandate a separate "Professional Development" section.
+
+### Problem 5 — Certifications missing the "No Code Architects Level 3 MAKE" course
+
+The JSON's `certifications` array only has 3 entries (Google Analytics Basics, Social Media Marketing Essentials, Google Digital Garage). The MAKE course was in a previous version of the JSON. The output shows only 3 certifications — which is now correct. No fix needed here.
+
+## Technical Changes — `supabase/functions/generate-documents/index.ts`
+
+### Change 1 — Fix education mapper to render `trainings` entries (line 167–169)
 
 Change from:
 ```typescript
-${exp.title} at ${exp.company} (${exp.period})
-```
-To:
-```typescript
-${getExpTitle(exp)} at ${exp.company} (${getExpPeriod(exp)})
-```
-
-### Change 3 — Update education mapping (line 115–117)
-
-Change from:
-```typescript
-${edu.degree} - ${edu.institution} (${edu.period})
-```
-To:
-```typescript
+${educationArray.map((edu: any) => `
 ${edu.degree} - ${edu.institution} (${getEduPeriod(edu)}${getEduStatus(edu)})
+${Array.isArray(edu.achievements) ? edu.achievements.map((a: string) => `• ${a}`).join("\n") : ""}
+`).join("\n")}
 ```
 
-### Change 4 — Fix certifications rendering (line 124)
-
-Change from:
+To:
 ```typescript
-${certificationsArray.length > 0 ? certificationsArray.join("\n") : "..."}
+${educationArray.map((edu: any) => {
+  const period = getEduPeriod(edu);
+  const status = getEduStatus(edu);
+  let bullets = "";
+  if (Array.isArray(edu.achievements) && edu.achievements.length > 0) {
+    bullets = edu.achievements.map((a: string) => `• ${a}`).join("\n");
+  } else if (Array.isArray(edu.trainings) && edu.trainings.length > 0) {
+    bullets = edu.trainings.map((t: any) => `• ${t.course} — ${t.provider} (Instructor: ${t.instructor})`).join("\n");
+  }
+  return `${edu.degree} - ${edu.institution} (${period}${status})\n${bullets}`;
+}).join("\n\n")}
+```
+
+### Change 2 — Fix `aiCourses` extraction path (line 138)
+
+The current path `profDev?.schoolCommunityTrainings?.trainings` is wrong. Replace with a scan of the education array for entries with a `trainings` field:
+
+Change line 138 from:
+```typescript
+const aiCourses: any[] = profDev?.schoolCommunityTrainings?.trainings || [];
 ```
 To:
 ```typescript
-${certificationsArray.length > 0 ? certificationsArray.map((c: any) => {
-  if (typeof c === "string") return `• ${c}`;
-  const title = c.title || c.name || String(c);
-  const issuer = c.issuer ? ` — ${c.issuer}` : "";
-  const year = c.year ? ` (${c.year})` : "";
-  return `• ${title}${issuer}${year}`;
-}).join("\n") : "(extract from RAW RESUME TEXT below)"}
+// Extract trainings from education entries that have a trainings array (e.g. School Community Trainings / Skool)
+const aiCourses: any[] = educationArray
+  .filter((edu: any) => Array.isArray(edu.trainings))
+  .flatMap((edu: any) => edu.trainings);
 ```
 
-### Change 5 — Append professionalDevelopment to certifications block
-
-After the certifications block, add:
-```
-PROFESSIONAL DEVELOPMENT / LINKEDIN LEARNING:
-${linkedInCourses.map(c => `• ${c.course}${c.certificateLink ? ` — [PORTFOLIO_LINK text="${c.course} Certificate" url="${c.certificateLink}"]` : ""}`).join("\n")}
-${aiCourses.map(c => `• ${c.course} — ${c.provider} (Instructor: ${c.instructor})`).join("\n")}
-```
-
-### Change 6 — Fix achievements alias (line 90)
+### Change 3 — Mandate Professional Development section in prompt (line 183)
 
 Change from:
-```typescript
-const achievementsArray = Array.isArray(achievements) ? achievements : [];
 ```
-To use the alias-aware version defined in Change 1.
+${profDevText ? `\nPROFESSIONAL DEVELOPMENT / LINKEDIN LEARNING (include these in the Certifications or a separate Professional Development section):\n${profDevText}` : ""}
+```
+To:
+```
+${profDevText ? `\nPROFESSIONAL DEVELOPMENT (MANDATORY — include ALL of these as a dedicated "Professional Development" section in the resume, after Certifications):\n${profDevText}` : ""}
+```
 
-### Change 7 — Fix summary hallucination instruction (line 225)
+### Change 4 — Fix summary sentence 1 instruction (line 291)
 
 Change from:
-> "Sentence 1: Who the candidate is based on their actual experience (job titles, industry, years of experience)"
+> "Sentence 1: Who the candidate is — state their most recent job title(s) and field only."
 
 To:
-> "Sentence 1: Who the candidate is — state their most recent role(s) and field only. Do NOT calculate or state years of experience. Do NOT add descriptors like 'B2B', 'agency', or 'enterprise' unless those exact words appear in the work experience data above. Only use what is explicitly written."
+> "Sentence 1: Copy the job title from the MOST RECENT entry in WORK EXPERIENCE above — e.g. 'Marketing Strategy Consultant at Purple Patch Consulting'. Do NOT describe expertise, specialisations, or fields. Do NOT add any words beyond the job title and company."
 
-### Change 8 — Strengthen the anti-hallucination rule
+### Change 5 — Update VERBATIM RULE count to include Professional Development (line 301)
 
-After the VERBATIM RULE block, add:
+Add to the VERBATIM RULE block:
+> "- PROFESSIONAL DEVELOPMENT: ALL LinkedIn Learning and School Community Training courses listed must appear in a dedicated Professional Development section. Do NOT omit any course."
 
-```
-ANTI-HALLUCINATION RULE — ABSOLUTE:
-- You may ONLY state facts that are explicitly written in the CANDIDATE INFORMATION or RAW RESUME TEXT above.
-- Do NOT infer, calculate, or extrapolate. Do NOT write "4+ years", "10+ years", or any other years-of-experience figure unless that exact phrase appears in the source data.
-- Do NOT add adjectives or descriptors (e.g. "B2B environments", "agency settings", "enterprise-level") unless those exact terms appear in the source data.
-- If you are unsure whether a fact exists in the data, do not include it.
-```
-
----
-
-## Files to Edit
-- `supabase/functions/generate-documents/index.ts` — Changes 1 through 8, then redeploy
+### Change 6 — Redeploy the edge function
