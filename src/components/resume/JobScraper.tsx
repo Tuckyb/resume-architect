@@ -242,14 +242,7 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   }, []);
 
   const handleStartScrape = async () => {
-    if (!apiToken.trim()) {
-      toast({
-        title: "Missing API Token",
-        description: "Please make sure your Apify API Token is configured.",
-        variant: "destructive",
-      });
-      return;
-    }
+
 
     setIsScraping(true);
     setScrapedJobs([]);
