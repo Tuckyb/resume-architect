@@ -379,19 +379,24 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
   const fetchDatasetItems = async (datasetId: string) => {
     try {
-      const response = await fetch(
-        `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiToken}`
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "dataset", datasetId } }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch dataset: ${response.statusText}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const items = await response.json();
-      
+      const items = response.items;
+
       if (!Array.isArray(items)) {
         throw new Error("Invalid dataset returned from Apify.");
       }
+
 
       const formattedJobs: ScrapedJob[] = (items as ApifyJobItem[]).map((item: ApifyJobItem, index: number) => {
         const jobId = item.id != null ? String(item.id) : `scraped-${Date.now()}-${index}`;
