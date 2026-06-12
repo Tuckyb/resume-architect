@@ -157,12 +157,11 @@ Deno.serve(async (req) => {
   const categoriesInput = Array.isArray(body.categories)
     ? (body.categories as string[])
     : ['AI', 'Marketing']
-  const location = typeof body.location === 'string' ? body.location : ''
 
   try {
     const results = await Promise.all(
       categoriesInput.map((c) =>
-        researchCategory(c, location).catch((e) => {
+        researchCategory(c).catch((e) => {
           console.error(`Research failed for ${c}:`, e instanceof Error ? e.message : e)
           return []
         }),
