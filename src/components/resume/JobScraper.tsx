@@ -333,16 +333,20 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
   const pollRunStatus = async (runId: string, datasetId: string) => {
     try {
-      const response = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${apiToken}`
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "status", runId } }
       );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to poll status: ${response.statusText}`);
+
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      const status = result.data.status;
+      const status = response.status;
+
       
       if (status === "SUCCEEDED") {
         setScrapeStatus("Scrape successful! Fetching results...");
