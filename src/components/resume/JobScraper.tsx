@@ -226,6 +226,7 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   
   // Scraped results
   const [scrapedJobs, setScrapedJobs] = useState<ScrapedJob[]>([]);
+  const [isSavingToBoard, setIsSavingToBoard] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
 
