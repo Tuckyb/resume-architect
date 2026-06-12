@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ExampleTexts } from "@/components/resume/UploadExamples";
 
+// v2 prefix invalidates the pre-Styalized cache so the new example PDFs
+// are parsed on the next visit (no migration needed).
 const CACHE_KEYS = {
-  exampleResumeText: "default_example_resume",
-  exampleCoverLetterText: "default_example_coverletter",
-  styledResumeText: "default_styled_resume",
-  styledCoverLetterText: "default_styled_coverletter",
+  exampleResumeText: "default_v2_example_resume",
+  exampleCoverLetterText: "default_v2_example_coverletter",
+  styledResumeText: "default_v2_styled_resume",
+  styledCoverLetterText: "default_v2_styled_coverletter",
 } as const;
 
 const PDF_URLS: Record<keyof ExampleTexts, string> = {

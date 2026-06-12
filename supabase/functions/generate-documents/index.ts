@@ -82,8 +82,8 @@ async function generateWithClaude(
   const { personalInfo, workExperience, education, skills, certifications, achievements, references } = resume;
 
   const skillsText = skills?.map(s => `${s.category}: ${s.items.join(", ")}`).join("\n") || "";
-  
-  const referencesText = references?.map(ref => 
+
+  const referencesText = references?.map(ref =>
     `- ${ref.name} | ${ref.title} | ${ref.contact}`
   ).join("\n") || "";
 
@@ -243,22 +243,433 @@ Output ONLY the cover letter content in plain text format. No HTML or markdown.`
   return content;
 }
 
+// Pre-built reference block markup that the LLM is told to paste verbatim at
+// the end of the resume so referees are never omitted. Matches the .ref /
+// .ref__name / .ref__role classes from the Styalized CSS framework.
 function buildReferencesHTML(references: Reference[]): string {
   if (!references || references.length === 0) return "";
-  const rows: string[] = [];
-  for (let i = 0; i < references.length; i += 2) {
-    const ref1 = references[i];
-    const ref2 = references[i + 1];
-    const cellStyle = 'width:50%;padding:8px;vertical-align:top;';
-    const entryStyle = 'background-color:#f7fafc;padding:12px;border:1px solid #e2e8f0;';
-    const cell1 = `<td style="${cellStyle}"><div style="${entryStyle}"><div style="font-weight:600;color:#2c5282;">${ref1.name}</div><div style="font-size:10pt;color:#4a5568;">${ref1.title}</div><div style="font-size:9pt;color:#4a5568;margin-top:5px;">${ref1.contact}</div></div></td>`;
-    const cell2 = ref2
-      ? `<td style="${cellStyle}"><div style="${entryStyle}"><div style="font-weight:600;color:#2c5282;">${ref2.name}</div><div style="font-size:10pt;color:#4a5568;">${ref2.title}</div><div style="font-size:9pt;color:#4a5568;margin-top:5px;">${ref2.contact}</div></div></td>`
-      : `<td style="${cellStyle}"></td>`;
-    rows.push(`<tr>${cell1}${cell2}</tr>`);
-  }
-  return `<div class="section"><div class="section-title">References</div><table style="width:100%;border-collapse:collapse;">${rows.join("")}</table></div>`;
+  const items = references.map((r) => `
+      <div class="ref">
+        <div class="ref__name">${r.name}</div>
+        <div class="ref__role">${r.title}</div>
+        <div class="ref__role">${r.contact}</div>
+      </div>`).join("");
+  return `<section class="sec">
+        <div class="sec__label">Referees</div>
+        ${items}
+      </section>`;
 }
+
+// Shared CSS framework. Source of truth: references/skills/{resume,cover-letter}-formatter/SKILL.md
+// Tokens (hex values, embedded directly for Word compatibility):
+//   --ink:        #0D1B2A   primary text
+//   --paper:      #FAFAF7   sheet background
+//   --signal:     #1E3A5F   accent (italic org names, section labels in rail, callout borders)
+//   --signal-soft:#E8EEF5   key-achievement block backgrounds
+//   --n-900:      #1A1F26   near-black for headings
+//   --n-700:      #3D4550   body text
+//   --n-500:      #6B7380   labels, meta, dates
+//   --n-300:      #C8CCD1   dividers, tag borders
+//   --n-100:      #ECEDEF   page background
+// Fonts (loaded via <link>):
+//   --font-display: Source Serif 4 (name, org names)
+//   --font-body:    Inter Tight (UI text)
+//   --font-mono:    JetBrains Mono (contact bar, dates, tags)
+const cssFramework = `
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { background: #ECEDEF; }
+body {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  color: #0D1B2A;
+  line-height: 1.55;
+  padding: 40px 24px;
+  -webkit-font-smoothing: antialiased;
+  font-size: 13px;
+}
+
+a { color: #2a5db0; text-decoration: underline; }
+
+.sheet {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #FAFAF7;
+  padding: 8mm 15mm;
+  box-shadow: 0 1px 3px rgba(15,20,25,0.04), 0 12px 40px rgba(15,20,25,0.06);
+  display: flex;
+  flex-direction: column;
+  page-break-after: always;
+}
+.sheet:last-of-type { page-break-after: auto; }
+
+/* Masthead */
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #0D1B2A;
+}
+.masthead__name {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 43px;
+  line-height: 1;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: #0D1B2A;
+  white-space: nowrap;
+}
+.masthead__role {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1E3A5F;
+  margin-top: 6px;
+}
+.masthead__rule {
+  width: 40px;
+  height: 2px;
+  background: #1E3A5F;
+  margin-top: 8px;
+}
+.masthead__monogram {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: #0D1B2A;
+  text-align: right;
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+.masthead__monogram .desc {
+  display: block;
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6B7380;
+  margin-top: 4px;
+}
+
+/* Contact bar */
+.contact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin-top: 6px;
+  padding-bottom: 2px;
+}
+.contact span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  color: #3D4550;
+}
+.contact span b {
+  font-weight: 500;
+  color: #6B7380;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 9px;
+  margin-right: 6px;
+}
+
+/* Two-column layout (resume) */
+.layout {
+  display: flex;
+  gap: 18px;
+  margin-top: 12px;
+  flex: 1;
+}
+.rail {
+  flex: 0 0 32%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+main { flex: 1; min-width: 0; }
+
+/* Sections */
+.sec { display: flex; flex-direction: column; }
+.sec + .sec { margin-top: 14px; }
+.sec__label {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #1E3A5F;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #C8CCD1;
+  margin-bottom: 8px;
+}
+
+/* Cap groups (Core Capabilities) */
+.cap { margin-bottom: 8px; }
+.cap:last-child { margin-bottom: 0; }
+.cap__title {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1A1F26;
+  margin-bottom: 2px;
+}
+.cap__items {
+  font-size: 11px;
+  color: #3D4550;
+  line-height: 1.45;
+}
+
+/* Tool tag pills (Digital Tools & Analytics) */
+.tools { display: flex; flex-wrap: wrap; gap: 5px; }
+.tools span {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #3D4550;
+  padding: 3px 7px;
+  border: 1px solid #C8CCD1;
+  border-radius: 999px;
+  background: transparent;
+}
+
+/* Profile */
+.lead {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #3D4550;
+  margin-bottom: 7px;
+}
+.lead strong { color: #1A1F26; font-weight: 600; }
+
+/* Jobs (Professional Experience) */
+.job { margin-bottom: 10px; }
+.job:last-child { margin-bottom: 0; }
+.job__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.job__title {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1A1F26;
+}
+.job__date {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  color: #6B7380;
+  white-space: nowrap;
+}
+.job__org {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-style: italic;
+  font-size: 12.5px;
+  color: #1E3A5F;
+  margin: 1px 0 4px 0;
+}
+.points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.points li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #3D4550;
+  margin-bottom: 3px;
+}
+.points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0.85em;
+  height: 1px;
+  background: #6B7380;
+  width: 9px;
+}
+
+/* Key Achievements callout */
+.job__win {
+  background: #E8EEF5;
+  border-left: 3px solid #1E3A5F;
+  padding: 5px 9px;
+  margin-top: 5px;
+}
+.job__win .h4 {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #1E3A5F;
+  margin-bottom: 2px;
+}
+.job__win p { font-size: 11px; line-height: 1.5; color: #3D4550; }
+
+/* Education */
+.edu { margin-bottom: 8px; }
+.edu:last-child { margin-bottom: 0; }
+.edu__deg {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1A1F26;
+}
+.edu__meta {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  color: #6B7380;
+  margin-top: 1px;
+}
+.edu__note {
+  font-size: 11px;
+  color: #3D4550;
+  margin-top: 3px;
+  line-height: 1.45;
+}
+.honor {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1E3A5F;
+  margin-top: 2px;
+}
+
+/* Certifications list */
+ul.plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ul.plain li {
+  font-size: 11.5px;
+  color: #3D4550;
+  padding: 5px 0;
+  border-bottom: 1px solid #ECEDEF;
+}
+ul.plain li:last-child { border-bottom: none; }
+
+/* Referees */
+.ref { margin-bottom: 8px; }
+.ref:last-child { margin-bottom: 0; }
+.ref__name {
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #1A1F26;
+}
+.ref__role {
+  font-size: 10.5px;
+  color: #3D4550;
+  margin-top: 1px;
+}
+
+/* Note block (Community & Cultural Commitment) */
+.note {
+  background: #ECEDEF;
+  padding: 8px 10px;
+  border-radius: 3px;
+}
+.note p { font-size: 11.5px; line-height: 1.55; color: #3D4550; }
+
+/* Sheet footer */
+.sheet__footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #C8CCD1;
+  display: flex;
+  justify-content: space-between;
+  font-family: "Inter Tight", -apple-system, sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6B7380;
+}
+
+/* ---------- Cover letter additions ---------- */
+.letter { margin-top: 8px; }
+.letter__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+.letter__recipient {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #3D4550;
+}
+.letter__recipient strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0D1B2A;
+  margin-bottom: 2px;
+}
+.letter__date {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  color: #6B7380;
+  text-align: right;
+}
+.letter__salutation {
+  font-size: 13px;
+  color: #0D1B2A;
+  margin-bottom: 10px;
+}
+.letter__body p {
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #3D4550;
+  margin-bottom: 7px;
+}
+.letter__body p strong { color: #0D1B2A; font-weight: 600; }
+.letter__closing { margin-top: 10px; }
+.letter__closing p {
+  font-size: 12px;
+  color: #3D4550;
+  margin-bottom: 20px;
+}
+.sig-name {
+  font-family: "Source Serif 4", Georgia, serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #0D1B2A;
+}
+.sig-role {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1E3A5F;
+  margin-top: 3px;
+}
+
+/* Print */
+@page { size: A4; margin: 0; }
+@media print {
+  body { background: none; padding: 0; }
+  .sheet { margin: 0; box-shadow: none; width: 210mm; min-height: 297mm; }
+}
+`;
+
+const googleFontsLink =
+  '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+  '<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">';
 
 async function formatWithClaude(
   content: string,
@@ -273,588 +684,61 @@ async function formatWithClaude(
   console.log("Personal info for formatting:", JSON.stringify(personalInfo));
   console.log("Styled example provided:", !!styledExampleText);
 
-  // Word-compatible Resume CSS Framework
-  const resumeCssFramework = `
-/* Word-Compatible Professional Resume CSS */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 11pt;
-  line-height: 1.5;
-  color: #2d3748;
-  max-width: 8.5in;
-  margin: 0 auto;
-  padding: 0.5in;
-  background: white;
-}
-
-/* Header Styles */
-.header {
-  text-align: center;
-  border-bottom: 3px solid #1a365d;
-  padding-bottom: 15px;
-  margin-bottom: 20px;
-}
-
-.name {
-  font-size: 28pt;
-  font-weight: 700;
-  color: #1a365d;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
-}
-
-.contact-info {
-  font-size: 10pt;
-  color: #4a5568;
-}
-
-.contact-info span { margin: 0 8px; }
-
-.contact-info a {
-  color: #3182ce;
-  text-decoration: none;
-}
-
-/* Section Styles */
-.section {
-  margin-bottom: 18px;
-  page-break-inside: avoid;
-}
-
-.section-title {
-  font-size: 13pt;
-  font-weight: 600;
-  color: #1a365d;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  border-bottom: 2px solid #3182ce;
-  padding-bottom: 5px;
-  margin-bottom: 12px;
-}
-
-/* Professional Summary */
-.summary {
-  font-style: italic;
-  color: #4a5568;
-  padding: 10px 15px;
-  background-color: #f7fafc;
-  border-left: 4px solid #3182ce;
-}
-
-/* Competencies Table */
-.competencies-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 10px;
-}
-
-.competencies-table td {
-  width: 50%;
-  padding: 8px 12px;
-  vertical-align: top;
-  border: 1px solid #e2e8f0;
-  background-color: #f7fafc;
-}
-
-.competency-title {
-  font-weight: 600;
-  color: #2c5282;
-  margin-bottom: 4px;
-}
-
-.competency-skills {
-  font-size: 10pt;
-  color: #4a5568;
-}
-
-/* Job Entry Styles */
-.job-entry {
-  margin-bottom: 15px;
-  page-break-inside: avoid;
-}
-
-.job-header-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 5px;
-}
-
-.job-header-table td {
-  padding: 0;
-  vertical-align: baseline;
-}
-
-.job-header-table td:first-child {
-  text-align: left;
-}
-
-.job-header-table td:last-child {
-  text-align: right;
-}
-
-.job-title {
-  font-weight: 600;
-  color: #2c5282;
-}
-
-.job-company {
-  font-weight: 500;
-  color: #2d3748;
-}
-
-.job-dates {
-  font-size: 10pt;
-  color: #4a5568;
-  font-style: italic;
-}
-
-.job-description ul {
-  margin-left: 20px;
-  margin-top: 5px;
-}
-
-.job-description li {
-  margin-bottom: 4px;
-}
-
-/* Education & Certifications */
-.education-entry, .certification-entry {
-  margin-bottom: 10px;
-}
-
-.degree, .cert-name {
-  font-weight: 600;
-  color: #2c5282;
-}
-
-.institution {
-  color: #2d3748;
-}
-
-.edu-dates {
-  font-size: 10pt;
-  color: #4a5568;
-  font-style: italic;
-}
-
-/* Achievements */
-.achievements-list {
-  margin-left: 20px;
-}
-
-.achievements-list li {
-  margin-bottom: 6px;
-}
-
-/* References Table */
-.references-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.references-table td {
-  width: 50%;
-  padding: 10px;
-  vertical-align: top;
-}
-
-.reference-entry {
-  background-color: #f7fafc;
-  padding: 12px;
-  border: 1px solid #e2e8f0;
-}
-
-.reference-name {
-  font-weight: 600;
-  color: #2c5282;
-}
-
-.reference-title {
-  font-size: 10pt;
-  color: #4a5568;
-}
-
-.reference-contact {
-  font-size: 9pt;
-  color: #4a5568;
-  margin-top: 5px;
-}
-
-.reference-contact a {
-  color: #3182ce;
-  text-decoration: none;
-}
-
-/* Print Styles */
-@media print {
-  body { padding: 0; }
-  .section { page-break-inside: avoid; }
-  .job-entry { page-break-inside: avoid; }
-}
-
-@page {
-  size: letter;
-  margin: 0.5in;
-}
-`;
-
-  // Professional Cover Letter CSS Framework
-  const coverLetterCssFramework = `
-/* Professional Cover Letter CSS - Word Compatible */
-@page {
-  size: 8.5in 11in;
-  margin: 0.75in;
-}
-
-* { 
-  margin: 0; 
-  padding: 0; 
-  box-sizing: border-box; 
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
-} 
-
-html {
-  font-size: 16px;
-  -webkit-text-size-adjust: 100%;
-}
-
-body { 
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-  line-height: 1.6; 
-  color: #333; 
-  width: 100%;
-  max-width: 7in;
-  margin: 0 auto; 
-  padding: 0;
-  background: #fff;
-  font-size: 16px;
-} 
-
-/* Header for Letter (Sender Information) */
-.letter-header { 
-  text-align: left; 
-  padding-bottom: 20px; 
-  margin-bottom: 25px;
-  page-break-inside: avoid;
-} 
-
-.sender-name { 
-  font-size: 20px; 
-  font-weight: 700; 
-  color: #2c3e50; 
-  margin-bottom: 3px;
-  letter-spacing: 0.5px;
-} 
-
-.sender-contact { 
-  font-size: 13px; 
-  color: #555; 
-  line-height: 1.4; 
-  margin-bottom: 15px;
-} 
-
-.sender-contact a { 
-  color: #3498db; 
-  text-decoration: none; 
-}
-
-.sender-contact a:hover {
-  text-decoration: underline;
-}
-
-/* Date */
-.date { 
-  font-size: 14px; 
-  color: #555; 
-  margin-bottom: 25px;
-  page-break-after: avoid;
-}
-
-/* Recipient Information */
-.recipient { 
-  font-size: 14px; 
-  color: #555; 
-  margin-bottom: 25px; 
-  line-height: 1.5;
-  page-break-after: avoid;
-}
-
-.recipient-name {
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 2px;
-}
-
-.recipient-title {
-  color: #7f8c8d;
-  margin-bottom: 2px;
-}
-
-.recipient-company {
-  color: #7f8c8d;
-  margin-bottom: 2px;
-}
-
-.recipient-address {
-  color: #7f8c8d;
-}
-
-/* Salutation */
-.salutation { 
-  font-size: 15px; 
-  color: #444; 
-  margin-bottom: 18px;
-  page-break-after: avoid;
-}
-
-/* Letter Subject Line */
-.subject { 
-  font-weight: 700; 
-  font-size: 16px; 
-  color: #2c3e50; 
-  margin-bottom: 20px; 
-  border-bottom: 2px solid #3498db; 
-  padding-bottom: 8px;
-  page-break-after: avoid;
-} 
-
-/* Letter Body */
-.letter-body { 
-  font-size: 15px; 
-  line-height: 1.7; 
-  color: #444;
-} 
-
-.letter-body p { 
-  margin-bottom: 18px; 
-  text-align: justify;
-  orphans: 2;
-  widows: 2;
-} 
-
-/* Paragraph Emphasis */
-.opening-paragraph {
-  font-weight: 500;
-  color: #2c3e50;
-}
-
-.highlight { 
-  color: #3498db; 
-  font-weight: 600; 
-}
-
-.emphasis {
-  font-style: italic;
-  color: #444;
-}
-
-/* Achievement/Qualification Highlights */
-.achievements-summary {
-  background: #f8f9fa;
-  border-left: 4px solid #3498db;
-  padding: 15px;
-  margin: 15px 0;
-  border-radius: 4px;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.achievements-summary ul {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0 0 0;
-}
-
-.achievements-summary li {
-  padding-left: 20px;
-  position: relative;
-  margin-bottom: 6px;
-}
-
-.achievements-summary li:before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  background-color: #3498db;
-  border-radius: 50%;
-  position: absolute;
-  left: 0;
-  top: 8px;
-}
-
-/* Call to Action */
-.closing-statement {
-  font-weight: 500;
-  color: #2c3e50;
-  margin-top: 18px;
-  margin-bottom: 18px;
-}
-
-/* Signature Block */
-.signature { 
-  margin-top: 35px; 
-  page-break-inside: avoid;
-} 
-
-.closing-phrase { 
-  font-size: 15px; 
-  color: #444; 
-  margin-bottom: 25px;
-}
-
-.signature-name { 
-  font-size: 16px; 
-  font-weight: 700; 
-  color: #2c3e50; 
-  margin-bottom: 3px;
-}
-
-.signature-line {
-  color: #ccc;
-  margin-bottom: 20px;
-}
-
-.signature-contact {
-  font-size: 13px;
-  color: #555;
-  line-height: 1.4;
-}
-
-.signature-contact a {
-  color: #3498db;
-  text-decoration: none;
-}
-
-/* Print Optimizations */
-@media print {
-  @page {
-    size: 8.5in 11in;
-    margin: 0.75in;
-  }
-  
-  body { 
-    padding: 0;
-    max-width: none;
-    width: 100%;
-    font-size: 14px;
-  }
-  
-  .letter-header, .date, .recipient, .salutation, .subject {
-    page-break-inside: avoid;
-  }
-  
-  .letter-body p {
-    orphans: 3;
-    widows: 3;
-  }
-  
-  .sender-name {
-    font-size: 18px;
-  }
-  
-  .sender-contact, .date, .recipient, .salutation {
-    font-size: 13px;
-  }
-  
-  .subject {
-    font-size: 15px;
-  }
-  
-  .letter-body {
-    font-size: 14px;
-  }
-  
-  .achievements-summary {
-    page-break-inside: avoid;
-  }
-  
-  .signature {
-    margin-top: 30px;
-  }
-}
-`;
-
-  // Choose appropriate CSS based on document type
-  const cssFramework = docType.toLowerCase().includes("cover") ? coverLetterCssFramework : resumeCssFramework;
-
-  // Build the contact line with proper HTML links
-  const linkedInLink = personalInfo?.linkedIn 
-    ? `<a href="${personalInfo.linkedIn.startsWith('http') ? personalInfo.linkedIn : 'https://' + personalInfo.linkedIn}" target="_blank" style="color: #3182ce; text-decoration: none;">LinkedIn</a>` 
-    : '';
-  const portfolioLink = personalInfo?.portfolio 
-    ? `<a href="${personalInfo.portfolio.startsWith('http') ? personalInfo.portfolio : 'https://' + personalInfo.portfolio}" target="_blank" style="color: #3182ce; text-decoration: none;">Portfolio</a>` 
-    : '';
-  const emailLink = personalInfo?.email 
-    ? `<a href="mailto:${personalInfo.email}" style="color: #3182ce; text-decoration: none;">${personalInfo.email}</a>` 
-    : '';
-  
-  const contactParts = [
-    personalInfo?.address || '',
-    personalInfo?.phone || '',
-    emailLink,
-    linkedInLink,
-    portfolioLink
-  ].filter(Boolean);
-  
-  const contactInfoHTML = contactParts.join(' <span>|</span> ');
-
-  // Build styled example section if provided
+  const isCoverLetter = docType.toLowerCase().includes("cover");
+
+  // Pre-built references HTML to inject directly (ensures they are never omitted).
+  const referencesHTML = references && references.length > 0 ? buildReferencesHTML(references) : "";
+
+  // Derive initials for the masthead monogram block (e.g. "Thomas Condran" -> "TC").
+  const initials = (personalInfo?.fullName || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((s) => s[0]!.toUpperCase())
+    .slice(0, 2)
+    .join("") || "";
+
+  // Styled example section if provided.
   const styledExampleSection = styledExampleText ? `
 ## STYLED EXAMPLE TO FOLLOW:
-Here is an example of a styled ${docType} that shows the desired formatting, layout, and visual style.
-MATCH THIS STYLE as closely as possible while maintaining Word compatibility:
+Here is an example of a styled ${isCoverLetter ? "cover letter" : "resume"} that shows the desired formatting, layout, and visual style.
+MATCH THIS STYLE as closely as possible. The example defines the design system for the entire output.
 
 ${styledExampleText}
 
 === END OF STYLED EXAMPLE ===
 ` : "";
 
-  // Pre-build references HTML to inject directly (ensures they are never omitted)
-  const referencesHTML = references && references.length > 0 ? buildReferencesHTML(references) : "";
-
   // Portfolio link conversion instructions
   const portfolioLinkSection = portfolioJson ? `
 ## PORTFOLIO LINK CONVERSION:
 The content may contain markers like [PORTFOLIO: url]. Convert each one into a clickable inline hyperlink:
-<a href="url" target="_blank" style="color:#3182ce;text-decoration:none;">view in portfolio</a>
+<a href="url" target="_blank" style="color:#2a5db0;text-decoration:underline;">view in portfolio</a>
 Remove the [PORTFOLIO: ...] marker and replace it with the hyperlink inline in the text.
 ` : "";
 
-  const isCoverLetter = docType.toLowerCase().includes("cover");
-  
-  // Build cover letter specific contact HTML
-  const coverLetterContactHTML = `
-    <div class="sender-name">${personalInfo?.fullName || ""}</div>
-    <div class="sender-contact">
-      ${personalInfo?.address ? `${personalInfo.address}<br>` : ''}
-      ${personalInfo?.phone ? `${personalInfo.phone}<br>` : ''}
-      ${personalInfo?.email ? `<a href="mailto:${personalInfo.email}" style="color: #3498db; text-decoration: none;">${personalInfo.email}</a><br>` : ''}
-      ${personalInfo?.linkedIn ? `<a href="${personalInfo.linkedIn.startsWith('http') ? personalInfo.linkedIn : 'https://' + personalInfo.linkedIn}" target="_blank" style="color: #3498db; text-decoration: none;">LinkedIn</a><br>` : ''}
-      ${personalInfo?.portfolio ? `<a href="${personalInfo.portfolio.startsWith('http') ? personalInfo.portfolio : 'https://' + personalInfo.portfolio}" target="_blank" style="color: #3498db; text-decoration: none;">Portfolio</a>` : ''}
-    </div>
-  `;
+  const coverLetterPrompt = `You are a Professional Cover Letter Formatter. Transform the following cover letter content into a polished, single-page A4 cover letter matching the Styalized design system (serif masthead with monogram block, two-tone contact bar, 5-7 paragraph letter body, typed signature).
 
-  const coverLetterPrompt = `You are a Professional Cover Letter Formatter. Transform the following cover letter content into a beautifully styled HTML document.
 ${styledExampleSection}
 ${portfolioLinkSection}
-## CRITICAL - WORD COMPATIBILITY RULES:
-1. DO NOT use CSS variables - use direct hex colors
-2. DO NOT use flexbox or CSS Grid
-3. Use simple, inline-friendly CSS properties
-4. All colors must be hex codes (#2c3e50, #3498db, #555, etc.)
+## CRITICAL - STYLE RULES:
+1. Use only the CSS classes defined in the framework below. Do not invent new classes.
+2. Use direct hex colors (already in the framework). Do not introduce CSS variables.
+3. Use the framework's masthead/contact bar/letter body/signature components as-is.
+4. The Google Fonts <link> must be in <head> so Source Serif 4, Inter Tight and JetBrains Mono are available.
 
 ## CANDIDATE PERSONAL INFORMATION (USE THESE EXACT VALUES):
 - Full Name: ${personalInfo?.fullName || ""}
+- Role Title: derive a short descriptor (e.g. "Marketing & AI Systems", "Communications & Marketing Professional") that matches the candidate's actual background
+- Initials: ${initials}
 - Email: ${personalInfo?.email || ""}
 - Phone: ${personalInfo?.phone || ""}
 - Address: ${personalInfo?.address || ""}
 - LinkedIn URL: ${personalInfo?.linkedIn || ""}
+- LinkedIn handle (display text, e.g. /in/thomas-condran): derive from the URL or leave blank
 - Portfolio URL: ${personalInfo?.portfolio || ""}
+- Portfolio domain (display text, e.g. thomascportfolio.online): derive from the URL or leave blank
 
-## CSS FRAMEWORK (embed this in the HTML):
+## CSS FRAMEWORK (embed this in the HTML <style>):
 ${cssFramework}
 
 ## CONTENT TO FORMAT:
@@ -865,133 +749,268 @@ ${content}
 Use this EXACT structure with the CSS classes from the framework:
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Cover Letter</title>
+    <title>[Name] - Cover Letter</title>
+    ${googleFontsLink}
     <style>[EMBED FULL CSS HERE]</style>
 </head>
 <body>
-    <div class="letter-header">
-        ${coverLetterContactHTML}
+
+<section class="sheet">
+  <header>
+    <div class="masthead">
+      <div>
+        <h1 class="masthead__name">[Full Name]</h1>
+        <div class="masthead__role">[Role Title]</div>
+        <div class="masthead__rule"></div>
+      </div>
+      <div class="masthead__monogram">
+        [Initials]
+        <span class="desc">[Descriptor]</span>
+      </div>
+    </div>
+    <div class="contact">
+      <span><b>Location</b>[City, State]</span>
+      <span><b>Phone</b>[Phone]</span>
+      <span><b>Email</b>[Email]</span>
+      <span><b>LinkedIn</b><a href="[LinkedIn URL]">[/in/handle]</a></span>
+      <span><b>Portfolio</b><a href="[Portfolio URL]">[domain]</a></span>
+    </div>
+  </header>
+
+  <div class="letter">
+    <div class="letter__meta">
+      <div class="letter__recipient">
+        <strong>[Organisation]</strong>
+        [Hiring Manager name or "Hiring Manager"]
+      </div>
+      <div class="letter__date">[D Month YYYY]</div>
     </div>
 
-    <div class="date">[Today's date from the content]</div>
+    <div class="letter__salutation">Dear [Salutation],</div>
 
-    <div class="recipient">
-        <div class="recipient-name">[Hiring Manager name if known]</div>
-        <div class="recipient-title">[Title if known]</div>
-        <div class="recipient-company">[Company Name]</div>
-        <div class="recipient-address">[Address if known]</div>
+    <div class="letter__body">
+      <p>[Opening - hook sentence, role + organisation context, why this org. NEVER start with "I".]</p>
+      <p>[Experience breadth - overview of background aligned to role]</p>
+      <p>[Specific example 1 - named employer, concrete outcome]</p>
+      <p>[Specific example 2 - different experience, different angle]</p>
+      <p>[Differentiator - AI, systems, tools, innovation]</p>
+      <p>[Cultural/community commitment if relevant]</p>
+      <p>[Close - qualifications summary, call to action, one sentence]</p>
     </div>
 
-    <div class="salutation">Dear [Recipient Name/Hiring Manager],</div>
-
-    <div class="subject">Re: Application for [Position] at [Company]</div>
-
-    <div class="letter-body">
-        <p class="opening-paragraph">[Opening paragraph - enthusiastic hook]</p>
-        <p>[Body paragraph 1 with experience and achievements]</p>
-        <p>[Body paragraph 2 if needed]</p>
-        
-        <!-- Optional achievements box -->
-        <div class="achievements-summary">
-            <strong>Key Qualifications:</strong>
-            <ul>
-                <li>[Key achievement 1]</li>
-                <li>[Key achievement 2]</li>
-                <li>[Key achievement 3]</li>
-            </ul>
-        </div>
-        
-        <p class="closing-statement">[Closing paragraph with call to action]</p>
+    <div class="letter__closing">
+      <p>Kind regards,</p>
+      <div class="sig-name">[Full Name]</div>
+      <div class="sig-role">[Role Title]</div>
     </div>
+  </div>
 
-    <div class="signature">
-        <div class="closing-phrase">Sincerely,</div>
-        <div class="signature-name">${personalInfo?.fullName || ""}</div>
-        <div class="signature-contact">
-            ${personalInfo?.phone || ""} | <a href="mailto:${personalInfo?.email || ""}" style="color: #3498db; text-decoration: none;">${personalInfo?.email || ""}</a>
-        </div>
-    </div>
+  <footer class="sheet__footer">
+    <span>[Full Name] - [Role Descriptor]</span>
+    <span>Cover Letter - [Organisation]</span>
+  </footer>
+</section>
+
 </body>
 </html>
 
-## CSS CLASSES TO USE:
-- .letter-header, .sender-name, .sender-contact for header
-- .date for the date line
-- .recipient, .recipient-name, .recipient-title, .recipient-company for recipient
-- .salutation for greeting
-- .subject for subject line (with blue bottom border)
-- .letter-body, .opening-paragraph, .highlight, .emphasis for body
-- .achievements-summary for optional qualifications box
-- .closing-statement for final paragraph
-- .signature, .closing-phrase, .signature-name, .signature-contact for signature
+## WRITING RULES:
+- Opening paragraph: NEVER start with "I". Lead with a concept, observation, or the organisation's mission.
+- Bold company names and key qualifications inline using <strong>.
+- 5-7 paragraphs, each with a distinct purpose.
+- Closing paragraph: one sentence call to action, no more.
+- Signature is a TYPED name in Source Serif 4 + role title in uppercase signal blue. No image.
+- Links always: color:#2a5db0; text-decoration:underline;
+- Never use margin-top: auto on any element.
 
 Return ONLY the complete HTML code, nothing else.`;
 
-  const resumePrompt = `You are a professional resume formatter.
+  const resumePrompt = `You are a Professional Resume Formatter. Transform the following resume content into a polished 2-page A4 resume matching the Styalized design system: a serif masthead with monogram block, two-tone contact bar, two-column layout with a left "rail" sidebar (Core Capabilities, Digital Tools & Analytics, Education, Certifications, Referees) and a main content column (Professional Profile, Professional Experience across both pages, Selected Projects & Achievements, Community & Cultural Commitment).
 
-Transform the following ${docType} content into a beautifully styled HTML document that is FULLY COMPATIBLE WITH MICROSOFT WORD.
 ${styledExampleSection}
 ${portfolioLinkSection}
-## CRITICAL - WORD COMPATIBILITY RULES:
-1. DO NOT use CSS variables (var(--something)) - use direct hex colors like #1a365d
-2. DO NOT use flexbox (display: flex) - use HTML tables for layouts
-3. DO NOT use CSS Grid - use HTML tables for grid layouts
-4. Use background-color instead of background for colors
-5. Use simple, inline-friendly CSS properties
-6. All colors must be hex codes, not CSS variables
+## CRITICAL - STYLE RULES:
+1. Use only the CSS classes defined in the framework below. Do not invent new classes.
+2. Use direct hex colors (already in the framework). Do not introduce CSS variables.
+3. The document is exactly TWO <section class="sheet"> elements - page 1 and page 2. The masthead + contact bar + first half of content go in the first sheet. The second sheet has a continuation of the main column plus the rail's Education / Certifications / Referees. Each sheet has its own footer with "PAGE 0X OF 02".
+4. The Google Fonts <link> must be in <head> so Source Serif 4, Inter Tight and JetBrains Mono are available.
 
-## CRITICAL - CANDIDATE PERSONAL INFORMATION (USE THESE EXACT VALUES):
+## CANDIDATE PERSONAL INFORMATION (USE THESE EXACT VALUES):
 - Full Name: ${personalInfo?.fullName || ""}
+- Role Title: derive a short descriptor (e.g. "Marketing & AI Systems", "Communications & Marketing Professional") that matches the candidate's actual background
+- Initials: ${initials}
 - Email: ${personalInfo?.email || ""}
 - Phone: ${personalInfo?.phone || ""}
 - Address: ${personalInfo?.address || ""}
 - LinkedIn URL: ${personalInfo?.linkedIn || ""}
+- LinkedIn handle (display text, e.g. /in/thomas-condran): derive from the URL or leave blank
 - Portfolio URL: ${personalInfo?.portfolio || ""}
+- Portfolio domain (display text, e.g. thomascportfolio.online): derive from the URL or leave blank
 
-## CSS FRAMEWORK (embed this in the HTML):
+## CSS FRAMEWORK (embed this in the HTML <style>):
 ${cssFramework}
 
 ## CONTENT TO FORMAT:
 ${content}
 
-## REQUIREMENTS:
+## CRITICAL - NO PLACEHOLDERS:
+NEVER use [Your Name], [Your Email], [Your Phone], [Your Address], [City, State, Zip] or any similar placeholder text. Use the EXACT personal information provided above.
 
-### CRITICAL - NO PLACEHOLDERS:
-- NEVER use [Your Name], [Your Email], [Your Phone], [Your Address], [City, State, Zip] or any similar placeholder text
-- Use the EXACT personal information provided above
+## REQUIRED HTML STRUCTURE FOR RESUME:
 
-### CRITICAL - HEADER MUST INCLUDE ALL CONTACT INFO:
-For the header section, you MUST include this EXACT HTML structure:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>[Name] - Resume</title>
+    ${googleFontsLink}
+    <style>[EMBED FULL CSS HERE]</style>
+</head>
+<body>
 
-<div class="header">
-  <div class="name">${personalInfo?.fullName || ""}</div>
-  <div class="contact-info">
-    ${contactInfoHTML}
+<!-- PAGE 1 -->
+<section class="sheet">
+  <header>
+    <div class="masthead">
+      <div>
+        <h1 class="masthead__name">[Full Name]</h1>
+        <div class="masthead__role">[Role Title]</div>
+        <div class="masthead__rule"></div>
+      </div>
+      <div class="masthead__monogram">
+        [Initials]
+        <span class="desc">[Descriptor]</span>
+      </div>
+    </div>
+    <div class="contact">
+      <span><b>Location</b>[City, State]</span>
+      <span><b>Phone</b>[Phone]</span>
+      <span><b>Email</b>[Email]</span>
+      <span><b>LinkedIn</b><a href="[LinkedIn URL]">[/in/handle]</a></span>
+      <span><b>Portfolio</b><a href="[Portfolio URL]">[domain]</a></span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="rail">
+      <section class="sec">
+        <div class="sec__label">Core Capabilities</div>
+        <div class="cap">
+          <div class="cap__title">[Category]</div>
+          <div class="cap__items">[Skills as prose list]</div>
+        </div>
+        <!-- repeat .cap divs for each category -->
+      </section>
+      <section class="sec">
+        <div class="sec__label">Digital Tools &amp; Analytics</div>
+        <div class="tools">
+          <span>[Tool]</span>
+          <!-- repeat spans -->
+        </div>
+      </section>
+    </aside>
+
+    <main>
+      <section class="sec">
+        <div class="sec__label">Professional Profile</div>
+        <p class="lead">[Opening sentence with <strong>bold key phrase</strong>]</p>
+        <p class="lead">[Second paragraph]</p>
+      </section>
+
+      <section class="sec">
+        <div class="sec__label">Professional Experience</div>
+        <div class="job">
+          <div class="job__head">
+            <div class="job__title">[Title]</div>
+            <div class="job__date">[Year-Year]</div>
+          </div>
+          <div class="job__org">[Company Name]</div>
+          <ul class="points">
+            <li>[Responsibility]</li>
+          </ul>
+          <div class="job__win">
+            <div class="h4">Key Achievements</div>
+            <p>[Achievement text]</p>
+          </div>
+        </div>
+        <!-- repeat .job divs for the most recent 1-2 roles -->
+      </section>
+    </main>
   </div>
-</div>
 
-### Use these sections in order:
-1. Header (.header) - Use the EXACT header HTML shown above with actual name and all contact info
-2. Professional Summary (.section with .summary)
-3. Core Competencies - Use HTML table (.competencies-table) with 2x2 layout using <tr> and <td>
-4. Professional Experience - Each job uses a table for header layout (.job-header-table with 2 <td> cells) and .job-description for bullets
-5. Education (.education-entry)
-6. Certifications (.certification-entry)
-7. Key Achievements (.achievements-list)
-8. References - PASTE THIS EXACT PRE-BUILT HTML AT THE END (do not modify it):
+  <footer class="sheet__footer">
+    <span>[FULL NAME] - [ROLE DESCRIPTOR]</span>
+    <span>PAGE 01 OF 02</span>
+  </footer>
+</section>
+
+<!-- PAGE 2 -->
+<section class="sheet">
+  <div class="layout">
+    <aside class="rail">
+      <section class="sec">
+        <div class="sec__label">Education</div>
+        <div class="edu">
+          <div class="edu__deg">[Degree]</div>
+          <div class="edu__meta">[Institution] - [Year-Year]</div>
+          <div class="edu__note">[Details]</div>
+          <div class="honor">[Award if applicable]</div>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sec__label">Certifications</div>
+        <ul class="plain">
+          <li>[Certification]</li>
+        </ul>
+      </section>
+
+      <!-- REFS BLOCK - PASTE THIS EXACT PRE-BUILT HTML (do not modify it): -->
 ${referencesHTML || "<!-- No references provided -->"}
+    </aside>
 
-### Output Format:
-- Complete HTML document with <!DOCTYPE html>
-- Embed full CSS in <style> tag
-- Use HTML tables for ALL layouts (competencies, references, job headers) - NOT flexbox or CSS Grid
-- Use direct hex color codes like #1a365d, NOT CSS variables
-- Include @page rules for PDF conversion
-- Include print media queries
-- ALL links must use proper <a href="URL"> tags with target="_blank" and inline color styling
+    <main>
+      <section class="sec">
+        <div class="sec__label">Professional Experience (Cont.)</div>
+        <!-- remaining .job divs -->
+      </section>
+
+      <section class="sec">
+        <div class="sec__label">Selected Projects &amp; Achievements</div>
+        <div class="note"><p>[Optional: standout projects or achievements]</p></div>
+      </section>
+
+      <section class="sec">
+        <div class="sec__label">Community &amp; Cultural Commitment</div>
+        <div class="note"><p>[Optional: community / cultural commitment or closing note]</p></div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="sheet__footer">
+    <span>[FULL NAME] - [ROLE DESCRIPTOR]</span>
+    <span>PAGE 02 OF 02</span>
+  </footer>
+</section>
+
+</body>
+</html>
+
+## COMPONENT RULES:
+- Masthead name: Source Serif 4, ~43px, weight 400, letter-spacing -0.02em.
+- Monogram block (top-right): initials + small descriptor label.
+- Role subtitle: uppercase, Inter Tight, signal blue. Blue rule under it.
+- Contact bar items: <span> with <b> label prefix; labels are LOCATION, PHONE, EMAIL, LINKEDIN, PORTFOLIO. LinkedIn and Portfolio are <a> tags with color:#2a5db0; text-decoration:underline.
+- Section labels in rail: signal blue, uppercase, 0.1em letter-spacing, bottom border in --n-300.
+- Cap groups: title bold, items as prose (NOT a bullet list).
+- Tool tags: monospace, 1px border, no background fill, rounded pill.
+- Experience entries: org name in Source Serif 4 italic, signal blue. Bullets use ul.points with a dash rule prefix, not circle bullets. Key Achievements use the .job__win callout: light blue background, left blue border, small uppercase H4 inside.
+- Education: .edu__deg for degree, .edu__meta for institution + date in monospace, .edu__note for detail, .honor for awards (signal blue, bold).
+- Certifications: ul.plain with bottom border rules, no bullets.
+- Referees: .ref with .ref__name (bold) + .ref__role (two divs for title and contact). ALWAYS include actual contact details, never "available upon request".
 
 Return ONLY the complete HTML code, nothing else.`;
 

@@ -15,9 +15,10 @@ import {
 import { PdfUploader } from "./PdfUploader";
 import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
+import { JobScraper } from "./JobScraper";
 
 import { RecentSettings } from "./RecentSettings";
-import { Sparkles, AlertCircle, FileText, Settings, Loader2 } from "lucide-react";
+import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ResumeBuilder() {
@@ -146,10 +147,14 @@ export function ResumeBuilder() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+          <TabsList className="grid w-full max-w-lg mx-auto grid-cols-3 mb-8">
             <TabsTrigger value="setup" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               Setup
+            </TabsTrigger>
+            <TabsTrigger value="scrapers" className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Scrapers
             </TabsTrigger>
             <TabsTrigger value="preview" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -254,6 +259,17 @@ export function ResumeBuilder() {
                   }} 
                 />
               </div>
+            </div>
+          </TabsContent>
+
+          {/* Scrapers Tab */}
+          <TabsContent value="scrapers" className="mt-0">
+            <div className="max-w-5xl mx-auto">
+              <JobScraper 
+                onJobsChange={setJobs} 
+                existingJobs={jobs}
+                onSwitchTab={setActiveTab}
+              />
             </div>
           </TabsContent>
 

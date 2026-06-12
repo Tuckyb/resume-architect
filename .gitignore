@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Unrelated external checkout
+Open Design/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

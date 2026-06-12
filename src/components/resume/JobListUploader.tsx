@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Plus,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { JobTarget } from "@/types/resume";
 import { useToast } from "@/hooks/use-toast";
@@ -28,12 +29,39 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
   const [showManualAdd, setShowManualAdd] = useState(false);
+  const [editingCompanyJobId, setEditingCompanyJobId] = useState<string | null>(null);
+  const [editingCompanyValue, setEditingCompanyValue] = useState("");
   const [manualJob, setManualJob] = useState<Partial<JobTarget>>({
     companyName: "",
     position: "",
     jobDescription: "",
     location: "",
   });
+
+  const startEditingCompany = (jobId: string, currentName: string) => {
+    setEditingCompanyJobId(jobId);
+    // Treat both "Unknown Company" and empty strings as "no real value" so
+    // the edit input starts blank rather than pre-filled with the placeholder.
+    setEditingCompanyValue(
+      !currentName || currentName === "Unknown Company" ? "" : currentName
+    );
+  };
+
+  const saveCompanyName = (jobId: string) => {
+    const trimmed = editingCompanyValue.trim();
+    onJobsChange(
+      jobs.map((j) =>
+        j.id === jobId ? { ...j, companyName: trimmed || "Unknown Company" } : j
+      )
+    );
+    setEditingCompanyJobId(null);
+    setEditingCompanyValue("");
+  };
+
+  const cancelEditingCompany = () => {
+    setEditingCompanyJobId(null);
+    setEditingCompanyValue("");
+  };
 
   const handleDrop = useCallback(
     async (e: React.DragEvent<HTMLDivElement>) => {
@@ -413,16 +441,51 @@ export function JobListUploader({ jobs, onJobsChange }: JobListUploaderProps) {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
                         <Building2 className="h-4 w-4" />
-                        <span>{getPlainText(job.companyName)}</span>
-                        {job.companyUrl && (
-                          <a
-                            href={job.companyUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
+                        {editingCompanyJobId === job.id ? (
+                          <Input
+                            value={editingCompanyValue}
+                            onChange={(e) => setEditingCompanyValue(e.target.value)}
+                            onBlur={() => saveCompanyName(job.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveCompanyName(job.id);
+                              if (e.key === "Escape") cancelEditingCompany();
+                            }}
+                            placeholder="Enter company name"
+                            className="h-7 text-sm"
+                            autoFocus
+                          />
+                        ) : (
+                          <>
+                            <span
+                              className={
+                                !job.companyName || job.companyName === "Unknown Company"
+                                  ? "italic"
+                                  : ""
+                              }
+                            >
+                              {job.companyName && job.companyName !== "Unknown Company"
+                                ? getPlainText(job.companyName)
+                                : "Add company"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => startEditingCompany(job.id, job.companyName)}
+                              className="text-muted-foreground hover:text-foreground"
+                              title="Edit company name"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            {job.companyUrl && (
+                              <a
+                                href={job.companyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            )}
+                          </>
                         )}
                       </div>
                       {job.location && (
