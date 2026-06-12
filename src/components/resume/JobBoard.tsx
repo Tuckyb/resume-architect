@@ -229,19 +229,27 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
           {filtered.map((job) => (
             <Card key={job.id} className="p-5 flex flex-col">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground leading-tight">{job.title}</h3>
-                  {job.company && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                      <Building2 className="h-3.5 w-3.5 shrink-0" />
-                      {job.company}
-                    </p>
-                  )}
+                <div className="flex items-start gap-2 min-w-0">
+                  <Checkbox
+                    checked={selectedIds.has(job.id)}
+                    onCheckedChange={() => toggleSelect(job.id)}
+                    className="mt-1 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground leading-tight">{job.title}</h3>
+                    {job.company && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <Building2 className="h-3.5 w-3.5 shrink-0" />
+                        {job.company}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <Badge variant="secondary" className="shrink-0">
                   {job.category}
                 </Badge>
               </div>
+
 
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                 {job.location && (
