@@ -181,7 +181,7 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     });
   };
 
-  const handleBulkAdd = () => {
+  const handleBulkAdd = async () => {
     const chosen = filtered.filter((j) => selectedIds.has(j.id));
     if (chosen.length === 0) {
       toast({
@@ -192,12 +192,14 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
       return;
     }
     onAddToTargets?.(chosen.map(toTarget));
-    toast({
-      title: "Added to targets",
-      description: `${chosen.length} job${chosen.length === 1 ? "" : "s"} ready in Setup.`,
-    });
-    setSelectedIds(new Set());
-    onSwitchTab?.("setup");
+    const ok = await markApplied(chosen.map((j) => j.id));
+    if (ok) {
+      toast({
+        title: "Sent to Applied",
+        description: `${chosen.length} job${chosen.length === 1 ? "" : "s"} ready in the maker.`,
+      });
+      onSwitchTab?.("setup");
+    }
   };
 
 
