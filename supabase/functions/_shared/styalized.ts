@@ -1,4 +1,4 @@
-// Styalized design system Ã¢â‚¬â€ deterministic renderer.
+// Styalized design system -- deterministic renderer.
 //
 // Source of truth: ../../../references/skills/resume-formatter/SKILL.md and
 // cover-letter-formatter/SKILL.md, matched against the approved examples in
@@ -28,7 +28,7 @@ export interface ResumeJob {
   org: string;
   dates: string;
   bullets: string[];
-  /** Key Achievements callout Ã¢â‚¬â€ each entry renders as its own paragraph. */
+  /** Key Achievements callout -- each entry renders as its own paragraph. */
   win?: string[];
 }
 
@@ -478,7 +478,7 @@ ul.plain li:last-child { border-bottom: none; }
 
 // Overflow spacing ladder from the resume-formatter SKILL (steps 2-5; step 1,
 // sheet padding, is already at the floor). Appended after cssFramework when a
-// compact layout is needed Ã¢â‚¬â€ never edit cssFramework itself.
+// compact layout is needed -- never edit cssFramework itself.
 export const compactCss = `
 .sec + .sec { margin-top: 10px; }
 .job { margin-bottom: 7px; }
@@ -694,7 +694,7 @@ ${bullets}
 }
 
 function renderFooter(personalInfo: PersonalInfo, roleTitle: string, right: string): string {
-  const left = `${personalInfo.fullName || ""} Ã‚Â· ${footerDescriptor(roleTitle)}`;
+  const left = `${personalInfo.fullName || ""} \u00B7 ${footerDescriptor(roleTitle)}`;
   return `<footer class="sheet__footer">
   <span>${escapeHtml(left)}</span>
   <span>${escapeHtml(right)}</span>
@@ -737,7 +737,7 @@ export function renderResume(
       const honor = e.honor ? `\n    <div class="honor">${escapeHtml(e.honor)}</div>` : "";
       return `  <div class="edu">
     <div class="edu__deg">${escapeHtml(e.degree)}</div>
-    <div class="edu__meta">${escapeHtml(e.institution)} Ã‚Â· ${escapeHtml(e.dates)}</div>${note}${honor}
+    <div class="edu__meta">${escapeHtml(e.institution)} \u00B7 ${escapeHtml(e.dates)}</div>${note}${honor}
   </div>`;
     })
     .join("\n");
@@ -916,7 +916,7 @@ ${paragraphs}
     </div>
   </div>
 
-  ${renderFooter(personalInfo, content.roleTitle, `Cover Letter Ã¢â‚¬â€ ${organisation}`)}
+  ${renderFooter(personalInfo, content.roleTitle, `Cover Letter \u2014 ${organisation}`)}
 </section>
 
 </body>
