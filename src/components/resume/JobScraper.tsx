@@ -690,17 +690,12 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
                 <div className="space-y-1.5">
                   <Label htmlFor="location">Location</Label>
-                  <Select 
-                    value={isCustomLocation ? "custom" : location} 
+                  <Select
+                    value={location}
                     onValueChange={(val) => {
-                      if (val === "custom") {
-                        setIsCustomLocation(true);
-                        setLocation("");
-                      } else {
-                        setIsCustomLocation(false);
-                        setLocation(val);
-                      }
-                    }} 
+                      setIsCustomLocation(false);
+                      setLocation(val);
+                    }}
                     disabled={isScraping}
                   >
                     <SelectTrigger id="location" className="w-full">
@@ -716,24 +711,13 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
                       <SelectItem value="Wollongong, Illawarra & South Coast NSW">
                         Wollongong, Illawarra & South Coast
                       </SelectItem>
-                      <SelectItem value="custom">
-                        Custom Location...
-                      </SelectItem>
                     </SelectContent>
                   </Select>
-
-                  {isCustomLocation && (
-                    <div className="relative mt-2 font-normal">
-                      <Input
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        placeholder="Type Seek Location (e.g. Melbourne VIC)"
-                        disabled={isScraping}
-                      />
-                      <MapPin className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Searches are limited to Sydney &amp; Wollongong.
+                  </p>
                 </div>
+
 
                 <div className="space-y-1.5">
                   <Label htmlFor="work-type">Work Type</Label>
