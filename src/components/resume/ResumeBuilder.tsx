@@ -17,6 +17,7 @@ import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 import { JobScraper } from "./JobScraper";
 import { JobBoard } from "./JobBoard";
+import { AppliedJobs } from "./AppliedJobs";
 
 import { RecentSettings } from "./RecentSettings";
 import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid } from "lucide-react";
