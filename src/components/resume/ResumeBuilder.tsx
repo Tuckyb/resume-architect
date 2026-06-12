@@ -276,6 +276,21 @@ export function ResumeBuilder() {
             </div>
           </TabsContent>
 
+          {/* Job Board Tab */}
+          <TabsContent value="jobboard" className="mt-0">
+            <div className="max-w-6xl mx-auto">
+              <JobBoard
+                onAddToTargets={(newJobs) =>
+                  setJobs((prev) => [
+                    ...newJobs.filter((nj) => !prev.some((p) => p.id === nj.id)),
+                    ...prev,
+                  ])
+                }
+                onSwitchTab={setActiveTab}
+              />
+            </div>
+          </TabsContent>
+
           {/* Preview & Download Tab */}
           <TabsContent value="preview" className="mt-0">
             <div className="max-w-5xl mx-auto">
