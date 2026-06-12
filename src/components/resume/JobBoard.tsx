@@ -197,7 +197,21 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
             </Button>
           ))}
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t">
+            <Button size="sm" variant="outline" onClick={toggleSelectAll}>
+              <Checkbox checked={allVisibleSelected} className="mr-2 pointer-events-none" />
+              {allVisibleSelected ? "Deselect all" : "Select all"}
+            </Button>
+            <Button size="sm" onClick={handleBulkAdd} disabled={selectedIds.size === 0}>
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Use {selectedIds.size > 0 ? selectedIds.size : ""} for resume + cover letter
+            </Button>
+          </div>
+        )}
       </Card>
+
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
