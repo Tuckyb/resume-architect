@@ -94,22 +94,66 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
   };
 
+  const toTarget = (job: JobBoardRow): JobTarget => ({
+    id: `board-${job.id}`,
+    companyName: job.company ?? "Unknown company",
+    companyUrl: job.url ?? undefined,
+    position: job.title,
+    jobDescription: job.description ?? "",
+    location: job.location ?? undefined,
+    selected: true,
+  });
+
   const handleAddToTargets = (job: JobBoardRow) => {
-    const target: JobTarget = {
-      id: `board-${job.id}`,
-      companyName: job.company ?? "Unknown company",
-      companyUrl: job.url ?? undefined,
-      position: job.title,
-      jobDescription: job.description ?? "",
-      location: job.location ?? undefined,
-      selected: true,
-    };
-    onAddToTargets?.([target]);
+    onAddToTargets?.([toTarget(job)]);
     toast({ title: "Added to targets", description: `${job.title} is ready in Setup.` });
     onSwitchTab?.("setup");
   };
 
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.category === filter);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleSelected =
+    filtered.length > 0 && filtered.every((j) => selectedIds.has(j.id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filtered.forEach((j) => next.delete(j.id));
+      } else {
+        filtered.forEach((j) => next.add(j.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkAdd = () => {
+    const chosen = filtered.filter((j) => selectedIds.has(j.id));
+    if (chosen.length === 0) {
+      toast({
+        title: "No jobs selected",
+        description: "Tick the jobs you want to use for your resume + cover letter.",
+        variant: "destructive",
+      });
+      return;
+    }
+    onAddToTargets?.(chosen.map(toTarget));
+    toast({
+      title: "Added to targets",
+      description: `${chosen.length} job${chosen.length === 1 ? "" : "s"} ready in Setup.`,
+    });
+    setSelectedIds(new Set());
+    onSwitchTab?.("setup");
+  };
+
 
   return (
     <div className="space-y-6">
