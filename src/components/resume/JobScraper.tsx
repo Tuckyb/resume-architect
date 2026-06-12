@@ -544,6 +544,54 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     onSwitchTab("setup");
   };
 
+  // Save selected scraped jobs to the persistent Job Board.
+  const handleSaveToBoard = async () => {
+    const selected = scrapedJobs.filter((j) => j.selected);
+
+    if (selected.length === 0) {
+      toast({
+        title: "No Jobs Selected",
+        description: "Please check the box next to at least one job listing to save.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingToBoard(true);
+    try {
+      const rows = selected.map((j) => ({
+        title: j.jobTitle || "Untitled role",
+        company: j.companyName || null,
+        location: j.location || null,
+        category: "Marketing",
+        description: j.jobDescription || j.teaser || null,
+        url: j.jobLink || null,
+        salary: j.salaryLabel || null,
+        posted_date: j.listingDateDisplay || null,
+        source: "seek",
+      }));
+
+      const { error } = await supabase.from("job_board").insert(rows);
+      if (error) throw error;
+
+      toast({
+        title: "Saved to Job Board",
+        description: `Added ${selected.length} job${selected.length === 1 ? "" : "s"} to your Job Board.`,
+      });
+      onSwitchTab("jobboard");
+    } catch (err) {
+      toast({
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Could not save to Job Board.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingToBoard(false);
+    }
+  };
+
+
+
   // Export to CSV/Excel
   const handleExportCSV = () => {
     const targets = scrapedJobs.filter(j => j.selected).length > 0
