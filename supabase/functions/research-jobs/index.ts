@@ -116,7 +116,12 @@ Deno.serve(async (req) => {
 
   try {
     const results = await Promise.all(
-      categoriesInput.map((c) => researchCategory(c, location).catch(() => [])),
+      categoriesInput.map((c) =>
+        researchCategory(c, location).catch((e) => {
+          console.error(`Research failed for ${c}:`, e instanceof Error ? e.message : e)
+          return []
+        }),
+      ),
     )
     const allJobs = results.flat()
 
