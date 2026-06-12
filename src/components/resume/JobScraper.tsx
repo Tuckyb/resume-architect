@@ -297,25 +297,21 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     try {
       setScrapeStatus("Starting Apify Actor (websift/seek-job-scraper)...");
       
-      const response = await fetch(
-        `https://api.apify.com/v2/acts/websift~seek-job-scraper/runs?token=${apiToken}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "start", payload } }
       );
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to start run: ${errText || response.statusText}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      const runId = result.data.id;
-      const datasetId = result.data.defaultDatasetId;
+      const runId = response.runId;
+      const datasetId = response.datasetId;
+
       
       setActiveRunId(runId);
       setScrapeStatus("Actor started. Scraping Seek listings...");
