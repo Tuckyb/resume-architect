@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { JobTarget } from "@/types/resume";
@@ -41,6 +42,7 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isResearching, setIsResearching] = useState(false);
   const [filter, setFilter] = useState<"all" | "AI" | "Marketing">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const loadJobs = useCallback(async () => {
     setIsLoading(true);
@@ -93,22 +95,66 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
   };
 
+  const toTarget = (job: JobBoardRow): JobTarget => ({
+    id: `board-${job.id}`,
+    companyName: job.company ?? "Unknown company",
+    companyUrl: job.url ?? undefined,
+    position: job.title,
+    jobDescription: job.description ?? "",
+    location: job.location ?? undefined,
+    selected: true,
+  });
+
   const handleAddToTargets = (job: JobBoardRow) => {
-    const target: JobTarget = {
-      id: `board-${job.id}`,
-      companyName: job.company ?? "Unknown company",
-      companyUrl: job.url ?? undefined,
-      position: job.title,
-      jobDescription: job.description ?? "",
-      location: job.location ?? undefined,
-      selected: true,
-    };
-    onAddToTargets?.([target]);
+    onAddToTargets?.([toTarget(job)]);
     toast({ title: "Added to targets", description: `${job.title} is ready in Setup.` });
     onSwitchTab?.("setup");
   };
 
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.category === filter);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const allVisibleSelected =
+    filtered.length > 0 && filtered.every((j) => selectedIds.has(j.id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        filtered.forEach((j) => next.delete(j.id));
+      } else {
+        filtered.forEach((j) => next.add(j.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkAdd = () => {
+    const chosen = filtered.filter((j) => selectedIds.has(j.id));
+    if (chosen.length === 0) {
+      toast({
+        title: "No jobs selected",
+        description: "Tick the jobs you want to use for your resume + cover letter.",
+        variant: "destructive",
+      });
+      return;
+    }
+    onAddToTargets?.(chosen.map(toTarget));
+    toast({
+      title: "Added to targets",
+      description: `${chosen.length} job${chosen.length === 1 ? "" : "s"} ready in Setup.`,
+    });
+    setSelectedIds(new Set());
+    onSwitchTab?.("setup");
+  };
+
 
   return (
     <div className="space-y-6">
@@ -152,7 +198,21 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
             </Button>
           ))}
         </div>
+
+        {filtered.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t">
+            <Button size="sm" variant="outline" onClick={toggleSelectAll}>
+              <Checkbox checked={allVisibleSelected} className="mr-2 pointer-events-none" />
+              {allVisibleSelected ? "Deselect all" : "Select all"}
+            </Button>
+            <Button size="sm" onClick={handleBulkAdd} disabled={selectedIds.size === 0}>
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Use {selectedIds.size > 0 ? selectedIds.size : ""} for resume + cover letter
+            </Button>
+          </div>
+        )}
       </Card>
+
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -169,19 +229,27 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
           {filtered.map((job) => (
             <Card key={job.id} className="p-5 flex flex-col">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground leading-tight">{job.title}</h3>
-                  {job.company && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                      <Building2 className="h-3.5 w-3.5 shrink-0" />
-                      {job.company}
-                    </p>
-                  )}
+                <div className="flex items-start gap-2 min-w-0">
+                  <Checkbox
+                    checked={selectedIds.has(job.id)}
+                    onCheckedChange={() => toggleSelect(job.id)}
+                    className="mt-1 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground leading-tight">{job.title}</h3>
+                    {job.company && (
+                      <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                        <Building2 className="h-3.5 w-3.5 shrink-0" />
+                        {job.company}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <Badge variant="secondary" className="shrink-0">
                   {job.category}
                 </Badge>
               </div>
+
 
               <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs text-muted-foreground">
                 {job.location && (
