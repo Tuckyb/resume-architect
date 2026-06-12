@@ -27,3 +27,6 @@ Open Design/
 *.sw?
 
 validation/out/
+
+# Supabase CLI link cache
+supabase/.temp/
