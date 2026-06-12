@@ -28,7 +28,8 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
-  HelpCircle
+  HelpCircle,
+  LayoutGrid
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
