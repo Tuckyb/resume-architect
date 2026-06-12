@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { JobTarget } from "@/types/resume";
 import { 
   Search, 
@@ -180,15 +181,9 @@ const marketingSubclasses = [
 export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScraperProps) {
   const { toast } = useToast();
   
-  // Credentials: localStorage first, then gitignored .env.local defaults
-  // (VITE_APIFY_TOKEN / VITE_APIFY_USERNAME). Never hardcode tokens here —
-  // GitHub push protection blocks them.
-  const [apiToken] = useState(() => {
-    return localStorage.getItem("apify_api_token") || import.meta.env.VITE_APIFY_TOKEN || "";
-  });
-  const [username] = useState(() => {
-    return localStorage.getItem("apify_username") || import.meta.env.VITE_APIFY_USERNAME || "";
-  });
+  // Apify credentials live as a backend secret (APIFY_API_TOKEN) and are used
+  // by the `apify-scrape` edge function. The token is never exposed to the browser.
+
 
   // Subclassification Selection states matching user screenshot
   const [isSubclassOpen, setIsSubclassOpen] = useState(true);
@@ -234,14 +229,8 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
 
-  // Sync credentials to localStorage
-  useEffect(() => {
-    localStorage.setItem("apify_api_token", apiToken);
-  }, [apiToken]);
 
-  useEffect(() => {
-    localStorage.setItem("apify_username", username);
-  }, [username]);
+
 
   // Clean up timeouts on unmount
   useEffect(() => {
@@ -253,14 +242,7 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   }, []);
 
   const handleStartScrape = async () => {
-    if (!apiToken.trim()) {
-      toast({
-        title: "Missing API Token",
-        description: "Please make sure your Apify API Token is configured.",
-        variant: "destructive",
-      });
-      return;
-    }
+
 
     setIsScraping(true);
     setScrapedJobs([]);
@@ -315,25 +297,21 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     try {
       setScrapeStatus("Starting Apify Actor (websift/seek-job-scraper)...");
       
-      const response = await fetch(
-        `https://api.apify.com/v2/acts/websift~seek-job-scraper/runs?token=${apiToken}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "start", payload } }
       );
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to start run: ${errText || response.statusText}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      const runId = result.data.id;
-      const datasetId = result.data.defaultDatasetId;
+      const runId = response.runId;
+      const datasetId = response.datasetId;
+
       
       setActiveRunId(runId);
       setScrapeStatus("Actor started. Scraping Seek listings...");
@@ -355,16 +333,20 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
   const pollRunStatus = async (runId: string, datasetId: string) => {
     try {
-      const response = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${apiToken}`
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "status", runId } }
       );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to poll status: ${response.statusText}`);
+
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      const status = result.data.status;
+      const status = response.status;
+
       
       if (status === "SUCCEEDED") {
         setScrapeStatus("Scrape successful! Fetching results...");
@@ -397,19 +379,24 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
   const fetchDatasetItems = async (datasetId: string) => {
     try {
-      const response = await fetch(
-        `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiToken}`
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "dataset", datasetId } }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch dataset: ${response.statusText}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const items = await response.json();
-      
+      const items = response.items;
+
       if (!Array.isArray(items)) {
         throw new Error("Invalid dataset returned from Apify.");
       }
+
 
       const formattedJobs: ScrapedJob[] = (items as ApifyJobItem[]).map((item: ApifyJobItem, index: number) => {
         const jobId = item.id != null ? String(item.id) : `scraped-${Date.now()}-${index}`;
@@ -474,14 +461,15 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     try {
       setScrapeStatus("Aborting scraper run...");
       
-      const response = await fetch(
-        `https://api.apify.com/v2/actor-runs/${activeRunId}/abort?token=${apiToken}`,
-        { method: "POST" }
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "abort", runId: activeRunId } }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to abort on Apify. Stopping client polling.");
+      if (invokeError || response?.error) {
+        throw new Error(invokeError?.message || response?.error || "Failed to abort run.");
       }
+
 
       toast({
         title: "Scrape Aborted",
