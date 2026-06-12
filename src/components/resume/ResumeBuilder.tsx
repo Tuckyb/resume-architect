@@ -20,7 +20,7 @@ import { JobBoard } from "./JobBoard";
 import { AppliedJobs } from "./AppliedJobs";
 
 import { RecentSettings } from "./RecentSettings";
-import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid } from "lucide-react";
+import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ResumeBuilder() {
