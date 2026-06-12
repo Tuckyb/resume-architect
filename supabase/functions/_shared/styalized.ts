@@ -56,6 +56,8 @@ export interface ResumeContent {
   pageSplit: number;
   education: ResumeEducation[];
   certifications: string[];
+  /** Professional development courses (LinkedIn Learning, AI trainings). */
+  professionalDevelopment?: string[];
   projects?: ResumeProjectGroup[];
   communityNote?: string;
 }
@@ -503,18 +505,35 @@ export function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+// Descriptive form: [PORTFOLIO_LINK text="AdCraft Studio" url="https://...#anchor"]
+const PORTFOLIO_LINK_MARKER = /\[PORTFOLIO_LINK\s+text="([^"]*)"\s+url="([^"]*)"\s*\]/g;
+// Legacy form: [PORTFOLIO: url] (renders generic anchor text)
 const PORTFOLIO_MARKER = /\[PORTFOLIO:\s*([^\]\s]+)\s*\]/g;
+
+// NUL sentinel: survives escapeHtml and cannot occur in prose. Built via
+// fromCharCode so this source file stays pure ASCII (no control-char escapes).
+const SENTINEL = String.fromCharCode(0);
+const SENTINEL_RE = new RegExp(SENTINEL + "(\\d+)" + SENTINEL, "g");
 
 /**
  * Renders LLM-authored body text. All text is escaped; the only markup that
- * survives is balanced <strong> pairs and [PORTFOLIO: url] markers, which
- * become styled inline links. Unbalanced tags are escaped literally; markers
- * with non-http(s) URLs are stripped.
+ * survives is balanced <strong> pairs and portfolio link markers, which become
+ * styled inline links with descriptive anchor text. Unbalanced tags are
+ * escaped literally; markers with non-http(s) URLs degrade to plain text.
  */
 export function renderInline(s: string): string {
-  const withLinks = s.replace(PORTFOLIO_MARKER, (_m, url: string) => {
+  const links: Array<{ url: string; text: string }> = [];
+
+  let withLinks = s.replace(PORTFOLIO_LINK_MARKER, (_m, text: string, url: string) => {
+    if (!/^https?:\/\//i.test(url)) return text;
+    links.push({ url, text: text || "view in portfolio" });
+    return SENTINEL + (links.length - 1) + SENTINEL;
+  });
+
+  withLinks = withLinks.replace(PORTFOLIO_MARKER, (_m, url: string) => {
     if (!/^https?:\/\//i.test(url)) return "";
-    return `\u0000A${url}\u0000`;
+    links.push({ url, text: "view in portfolio" });
+    return SENTINEL + (links.length - 1) + SENTINEL;
   });
 
   const parts = withLinks.split(/(<strong>|<\/strong>)/);
@@ -532,12 +551,11 @@ export function renderInline(s: string): string {
         html += escapeHtml(part);
       }
     } else {
-      html += escapeHtml(part).replace(
-        // eslint-disable-next-line no-control-regex -- NUL sentinel is intentional: survives escapeHtml, cannot occur in prose
-        /\u0000A([^\u0000]*)\u0000/g,
-        (_m, url: string) =>
-          `<a href="${url}" target="_blank" style="color:#2a5db0;text-decoration:underline;">view in portfolio</a>`,
-      );
+      html += escapeHtml(part).replace(SENTINEL_RE, (_m, idx: string) => {
+        const link = links[Number(idx)];
+        if (!link) return "";
+        return `<a href="${escapeHtml(link.url)}" target="_blank" style="color:#2a5db0;text-decoration:underline;">${escapeHtml(link.text)}</a>`;
+      });
     }
   }
   if (open > 0) html += "</strong>".repeat(open);
@@ -758,6 +776,15 @@ ${content.certifications.map((c) => `    <li>${escapeHtml(c)}</li>`).join("\n")}
 </section>`
     : "";
 
+  const profDevSection = content.professionalDevelopment && content.professionalDevelopment.length
+    ? `<section class="sec">
+  <div class="sec__label">Professional Development</div>
+  <ul class="plain">
+${content.professionalDevelopment.map((c) => `    <li>${escapeHtml(c)}</li>`).join("\n")}
+  </ul>
+</section>`
+    : "";
+
   const referencesSection = renderReferences(references);
 
   const page2ExperienceSection = page2Jobs.length
@@ -841,7 +868,7 @@ ${page1Jobs.map(renderJob).join("\n")}
 <section class="sheet">
   <div class="layout">
     <aside class="rail">
-      ${[educationSection, certificationsSection, referencesSection].filter(Boolean).join("\n      ")}
+      ${[educationSection, certificationsSection, profDevSection, referencesSection].filter(Boolean).join("\n      ")}
     </aside>
 
     <main>
@@ -1019,6 +1046,10 @@ export function validateResumeContent(raw: unknown): ResumeContent {
     pageSplit,
     education,
     certifications: asStringArray(r.certifications, 8),
+    professionalDevelopment: (() => {
+      const pd = asStringArray(r.professionalDevelopment, 10);
+      return pd.length ? pd : undefined;
+    })(),
     projects: projects.length ? projects : undefined,
     communityNote: asString(r.communityNote),
   };

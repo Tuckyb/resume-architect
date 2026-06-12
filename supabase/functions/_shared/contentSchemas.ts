@@ -5,8 +5,9 @@
 
 const inlineMarkupNote =
   "Plain text. You may bold key phrases with <strong>...</strong>. " +
-  "Where a point is demonstrated in the candidate's portfolio, append the marker [PORTFOLIO: url] " +
-  "using only URLs that appear in the provided portfolio data.";
+  'Where a point is demonstrated in the candidate\'s portfolio, embed an inline marker [PORTFOLIO_LINK text="Descriptive Project Name" url="https://..."] ' +
+  "inside the sentence, where text names the specific project, tool, or skill area (never generic phrases like \"view in portfolio\"). " +
+  "Use only URLs that appear in the provided portfolio data, preferring section #anchor URLs over the base URL.";
 
 export const resumeContentTool = {
   name: "emit_resume_content",
@@ -117,6 +118,12 @@ export const resumeContentTool = {
         description: "Up to 8 certifications, most job-relevant first.",
         items: { type: "string" },
       },
+      professionalDevelopment: {
+        type: "array",
+        description:
+          "Professional development courses (LinkedIn Learning, AI trainings) when listed in the candidate data — include ALL of them, format: \"Course Name (Provider)\". Omit if none.",
+        items: { type: "string" },
+      },
       projects: {
         type: "array",
         description:
@@ -191,7 +198,7 @@ export const coverLetterContentTool = {
           "(6) optional community/cultural commitment if relevant; " +
           "(7) close — qualifications summary plus a one-sentence call to action. " +
           "Bold the organisation name and key qualifications inline with <strong>. " +
-          "Append [PORTFOLIO: url] markers only for URLs present in the portfolio data.",
+          'Where relevant, embed [PORTFOLIO_LINK text="Descriptive Name" url="https://..."] markers inline, using only URLs present in the portfolio data.',
         items: { type: "string" },
       },
       closing: {

@@ -105,7 +105,7 @@ export const sampleResumeContent: ResumeContent = {
       dates: "2022–2023",
       bullets: [
         "Delivered communication, content development and marketing projects for a diverse client base.",
-        "Developed stakeholder-focused content designed to improve engagement and visibility. [PORTFOLIO: https://thomascportfolio.online/projects]",
+        'Developed stakeholder-focused content designed to improve engagement and visibility, including the [PORTFOLIO_LINK text="AI Marketing Automation Suite" url="https://thomascportfolio.online/#tools"] toolset.',
         "Managed timelines and client expectations across multiple concurrent projects.",
         "Prepared performance reports using analytics tools and dashboard reporting systems.",
       ],
@@ -166,10 +166,12 @@ export const sampleResumeContent: ResumeContent = {
     "Meta Social Media Marketing Essentials",
     "Google Digital Garage — Intro to Google Ads",
     "Agile Marketing Foundations",
-    "Researching & Writing with Generative AI Tools",
-    "No Code Architects — Level 3 Automation",
-    "Using AI for Illustrations & Design",
-    "Visual Content Marketing Strategies",
+  ],
+  professionalDevelopment: [
+    "Researching & Writing with Generative AI Tools (LinkedIn Learning)",
+    "No Code Architects — Level 3 Automation (Skool)",
+    "Using AI for Illustrations & Design (LinkedIn Learning)",
+    "Visual Content Marketing Strategies (LinkedIn Learning)",
   ],
   projects: [
     {

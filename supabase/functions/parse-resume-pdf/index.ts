@@ -58,29 +58,13 @@ Deno.serve(async (req) => {
 
     console.log(`Parsing PDF: ${fileName}`);
 
-    // Use Lovable AI Gateway to extract structured information from PDF
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
+
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    // First, we need to extract text from the PDF
-    // Since we can't directly process PDF binary in the LLM, we'll use the base64 content
-    // For now, we'll send it to the AI with instructions to parse resume-like content
-
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are a resume parser. Extract structured information from the resume text/content provided.
+    const systemPrompt = `You are a resume parser. Extract structured information from the resume PDF provided.
             
 Return a JSON object with this structure:
 {
@@ -133,14 +117,27 @@ IMPORTANT:
 - Extract LinkedIn and portfolio URLs if present
 - Extract references with name, title/role, and contact information
 - Only include fields you can confidently extract
-- Return valid JSON only, no markdown`,
+- Return valid JSON only, no markdown`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt,
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Parse this resume PDF and extract all information. The PDF is base64 encoded. Extract as much structured information as possible.`,
+                text: "Parse this resume PDF and extract all information as structured JSON.",
               },
               {
                 type: "image_url",
@@ -166,6 +163,7 @@ IMPORTANT:
     const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) {
+      console.error("Unexpected AI response:", JSON.stringify(aiResponse));
       throw new Error("No response from AI");
     }
 
