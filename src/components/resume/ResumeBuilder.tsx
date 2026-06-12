@@ -16,9 +16,10 @@ import { PdfUploader } from "./PdfUploader";
 import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 import { JobScraper } from "./JobScraper";
+import { JobBoard } from "./JobBoard";
 
 import { RecentSettings } from "./RecentSettings";
-import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search } from "lucide-react";
+import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ResumeBuilder() {
