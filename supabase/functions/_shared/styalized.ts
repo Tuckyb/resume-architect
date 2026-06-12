@@ -947,7 +947,7 @@ export function validateResumeContent(raw: unknown): ResumeContent {
 
   const jobsRaw = Array.isArray(r.jobs) ? r.jobs : [];
   const jobs: ResumeJob[] = jobsRaw
-    .map((j) => {
+    .map((j): ResumeJob | null => {
       const job = (j ?? {}) as Record<string, unknown>;
       const title = asString(job.title);
       const org = asString(job.org);
@@ -977,7 +977,7 @@ export function validateResumeContent(raw: unknown): ResumeContent {
 
   const educationRaw = Array.isArray(r.education) ? r.education : [];
   const education: ResumeEducation[] = educationRaw
-    .map((e) => {
+    .map((e): ResumeEducation | null => {
       const edu = (e ?? {}) as Record<string, unknown>;
       const degree = asString(edu.degree);
       if (!degree) return null;
