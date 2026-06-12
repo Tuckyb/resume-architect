@@ -232,6 +232,16 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
               <Plus className="mr-1 h-3.5 w-3.5" />
               Use {selectedIds.size > 0 ? selectedIds.size : ""} for resume + cover letter
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkDelete}
+              disabled={selectedIds.size === 0}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              Delete {selectedIds.size > 0 ? selectedIds.size : ""}
+            </Button>
           </div>
         )}
       </Card>
