@@ -952,6 +952,20 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
                 <Download className="h-4 w-4 mr-2" />
                 Download Excel (CSV)
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveToBoard}
+                disabled={isSavingToBoard}
+                className="flex-1 md:flex-initial"
+              >
+                {isSavingToBoard ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                )}
+                Save to Job Board ({selectedCount})
+              </Button>
               <Button 
                 onClick={handleImportSelected}
                 size="sm"
