@@ -1,21 +1,36 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ExampleTexts } from "@/components/resume/UploadExamples";
 
-// v2 prefix invalidates the pre-Styalized cache so the new example PDFs
-// are parsed on the next visit (no migration needed).
+// Content-style references passed to the generation function for tone and
+// content guidance only. The visual design is rendered deterministically by
+// the edge function (supabase/functions/_shared/styalized.ts), so no styled
+// formatting examples are needed.
+export interface ExampleTexts {
+  exampleResumeText: string | null;
+  exampleCoverLetterText: string | null;
+}
+
+// v3 prefix invalidates the legacy cache (which also held parsed text of the
+// styled design PDFs — no longer used).
 const CACHE_KEYS = {
-  exampleResumeText: "default_v2_example_resume",
-  exampleCoverLetterText: "default_v2_example_coverletter",
-  styledResumeText: "default_v2_styled_resume",
-  styledCoverLetterText: "default_v2_styled_coverletter",
+  exampleResumeText: "default_v3_example_resume",
+  exampleCoverLetterText: "default_v3_example_coverletter",
 } as const;
+
+const LEGACY_KEYS = [
+  "default_example_resume",
+  "default_example_coverletter",
+  "default_styled_resume",
+  "default_styled_coverletter",
+  "default_v2_example_resume",
+  "default_v2_example_coverletter",
+  "default_v2_styled_resume",
+  "default_v2_styled_coverletter",
+];
 
 const PDF_URLS: Record<keyof ExampleTexts, string> = {
   exampleResumeText: "/examples/example-resume.pdf",
   exampleCoverLetterText: "/examples/example-coverletter.pdf",
-  styledResumeText: "/examples/styled-resume.pdf",
-  styledCoverLetterText: "/examples/styled-coverletter.pdf",
 };
 
 async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
@@ -60,17 +75,20 @@ export function useDefaultExamples(): { examples: ExampleTexts; isLoading: boole
     return {
       exampleResumeText: cached.exampleResumeText ?? null,
       exampleCoverLetterText: cached.exampleCoverLetterText ?? null,
-      styledResumeText: cached.styledResumeText ?? null,
-      styledCoverLetterText: cached.styledCoverLetterText ?? null,
     };
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     const cached = loadFromCache();
-    return Object.keys(cached).length < 4;
+    return Object.keys(cached).length < 2;
   });
 
   useEffect(() => {
+    // One-time cleanup of obsolete cache entries.
+    for (const key of LEGACY_KEYS) {
+      localStorage.removeItem(key);
+    }
+
     const missing = (Object.keys(CACHE_KEYS) as Array<keyof ExampleTexts>).filter(
       (key) => !localStorage.getItem(CACHE_KEYS[key])
     );

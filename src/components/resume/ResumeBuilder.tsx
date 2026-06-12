@@ -73,8 +73,6 @@ export function ResumeBuilder() {
             documentType,
             exampleResumeText: exampleTexts.exampleResumeText,
             exampleCoverLetterText: exampleTexts.exampleCoverLetterText,
-            styledResumeText: exampleTexts.styledResumeText,
-            styledCoverLetterText: exampleTexts.styledCoverLetterText,
             portfolioJson: portfolioJson,
           },
         });

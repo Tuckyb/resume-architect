@@ -1,7 +1,7 @@
+import { useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Download, FileText, Loader2, Printer, PackageCheck } from "lucide-react";
 import { GeneratedDocument, JobTarget } from "@/types/resume";
 import JSZip from "jszip";
@@ -12,35 +12,65 @@ interface DocumentPreviewProps {
   jobs?: JobTarget[];
 }
 
+function docFileName(doc: GeneratedDocument, job?: JobTarget): string {
+  const company = job?.companyName.replace(/\s+/g, "_") || "document";
+  return `${doc.type}_${company}.html`;
+}
+
 export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPreviewProps) {
-  const downloadDoc = (doc: GeneratedDocument, job?: JobTarget) => {
-    const blob = new Blob([doc.htmlContent], { type: "application/msword" });
+  // Hidden iframe used for print-to-PDF; reused across clicks.
+  const printFrameRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Opens the browser print dialog on the document rendered at true A4 size.
+  // The framework's @page { size: A4; margin: 0 } rules make "Save as PDF"
+  // pixel-faithful to the Styalized design.
+  const downloadPdf = (doc: GeneratedDocument) => {
+    printFrameRef.current?.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "-9999px";
+    iframe.style.width = "210mm";
+    iframe.style.height = "297mm";
+    iframe.setAttribute("aria-hidden", "true");
+    printFrameRef.current = iframe;
+
+    iframe.onload = async () => {
+      const frameWindow = iframe.contentWindow;
+      const frameDoc = iframe.contentDocument;
+      if (!frameWindow || !frameDoc) return;
+      try {
+        await frameDoc.fonts?.ready;
+      } catch {
+        // Fonts unavailable (offline) — print with fallback fonts.
+      }
+      // Small settle delay so web fonts finish painting before print.
+      setTimeout(() => {
+        frameWindow.focus();
+        frameWindow.print();
+      }, 300);
+    };
+
+    document.body.appendChild(iframe);
+    iframe.srcdoc = doc.htmlContent;
+  };
+
+  const downloadHtml = (doc: GeneratedDocument, job?: JobTarget) => {
+    const blob = new Blob([doc.htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const fileName = job ? `${doc.type}_${job.companyName.replace(/\s+/g, "_")}.doc` : `${doc.type}.doc`;
     a.href = url;
-    a.download = fileName;
+    a.download = docFileName(doc, job);
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  const printDocument = (doc: GeneratedDocument) => {
-    const printWindow = window.open("", "_blank");
-    if (printWindow) {
-      printWindow.document.write(doc.htmlContent);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
-
   const downloadAllAsZip = async () => {
     const zip = new JSZip();
-    
+
     documents.forEach((doc) => {
-      const job = jobs.find(j => j.id === doc.jobId);
-      const companyName = job?.companyName.replace(/\s+/g, "_") || "document";
-      const fileName = `${doc.type}_${companyName}.doc`;
-      zip.file(fileName, doc.htmlContent);
+      const job = jobs.find((j) => j.id === doc.jobId);
+      zip.file(docFileName(doc, job), doc.htmlContent);
     });
 
     const blob = await zip.generateAsync({ type: "blob" });
@@ -61,7 +91,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   if (isLoading) {
     return (
-<Card className="p-8 flex flex-col items-center justify-center h-[calc(100vh-200px)]">
+      <Card className="p-8 flex flex-col items-center justify-center h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Generating documents...</p>
       </Card>
@@ -70,7 +100,7 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   if (documents.length === 0) {
     return (
-<Card className="p-8 flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
+      <Card className="p-8 flex flex-col items-center justify-center h-[calc(100vh-200px)] text-center">
         <FileText className="h-12 w-12 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">Upload resume, select jobs, and generate.</p>
       </Card>
@@ -113,17 +143,23 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
                 </TabsList>
                 {jobDocs.map((doc) => (
                   <TabsContent key={doc.type} value={doc.type} className="flex-1 flex flex-col">
-                    <div className="flex gap-2 mb-4">
-                      <Button variant="outline" size="sm" onClick={() => downloadDoc(doc, job)}>
-                        <Download className="h-4 w-4 mr-2" />Download (.doc)
+                    <div className="flex items-center gap-2 mb-4">
+                      <Button variant="default" size="sm" onClick={() => downloadPdf(doc)}>
+                        <Printer className="h-4 w-4 mr-2" />Download PDF
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => printDocument(doc)}>
-                        <Printer className="h-4 w-4 mr-2" />Print/PDF
+                      <Button variant="outline" size="sm" onClick={() => downloadHtml(doc, job)}>
+                        <Download className="h-4 w-4 mr-2" />Download HTML
                       </Button>
+                      <span className="text-xs text-muted-foreground">
+                        PDF opens the print dialog — choose "Save as PDF".
+                      </span>
                     </div>
-                    <ScrollArea className="flex-1 border rounded-lg overflow-auto">
-                      <div className="bg-white text-black" dangerouslySetInnerHTML={{ __html: doc.htmlContent }} />
-                    </ScrollArea>
+                    <iframe
+                      srcDoc={doc.htmlContent}
+                      sandbox="allow-same-origin"
+                      title={`${doc.type} preview`}
+                      className="flex-1 w-full border rounded-lg bg-white"
+                    />
                   </TabsContent>
                 ))}
               </Tabs>

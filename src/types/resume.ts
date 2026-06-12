@@ -76,7 +76,9 @@ export interface ApplicationData {
 
 export interface GeneratedDocument {
   type: 'resume' | 'cover-letter';
+  /** Structured content JSON emitted by the generation model (debugging aid). */
   rawContent: string;
+  /** Final Styalized HTML produced by the deterministic renderer. */
   htmlContent: string;
   jobId: string;
 }
