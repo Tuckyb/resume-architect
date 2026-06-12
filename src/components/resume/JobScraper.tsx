@@ -461,14 +461,15 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     try {
       setScrapeStatus("Aborting scraper run...");
       
-      const response = await fetch(
-        `https://api.apify.com/v2/actor-runs/${activeRunId}/abort?token=${apiToken}`,
-        { method: "POST" }
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "abort", runId: activeRunId } }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to abort on Apify. Stopping client polling.");
+      if (invokeError || response?.error) {
+        throw new Error(invokeError?.message || response?.error || "Failed to abort run.");
       }
+
 
       toast({
         title: "Scrape Aborted",
