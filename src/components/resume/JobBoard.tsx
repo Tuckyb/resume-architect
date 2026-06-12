@@ -49,6 +49,7 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     const { data, error } = await supabase
       .from("job_board")
       .select("*")
+      .eq("applied", false)
       .order("created_at", { ascending: false });
     if (error) {
       toast({ title: "Failed to load job board", description: error.message, variant: "destructive" });
