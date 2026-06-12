@@ -56,6 +56,7 @@ async function researchCategory(category: string, location: string): Promise<Res
 
   const data = await res.json()
   const content: string = data?.choices?.[0]?.message?.content ?? ''
+  console.log(`[${category}] content length=${content.length} preview:`, content.slice(0, 500))
 
   let parsed: { jobs?: ResearchedJob[] } = {}
   try {
