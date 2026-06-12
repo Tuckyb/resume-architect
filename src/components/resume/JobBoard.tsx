@@ -129,10 +129,31 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     selected: true,
   });
 
-  const handleAddToTargets = (job: JobBoardRow) => {
+  const markApplied = async (ids: string[]) => {
+    const { error } = await supabase
+      .from("job_board")
+      .update({ applied: true, applied_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) {
+      toast({ title: "Couldn't move to Applied", description: error.message, variant: "destructive" });
+      return false;
+    }
+    setJobs((prev) => prev.filter((j) => !ids.includes(j.id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+    return true;
+  };
+
+  const handleAddToTargets = async (job: JobBoardRow) => {
     onAddToTargets?.([toTarget(job)]);
-    toast({ title: "Added to targets", description: `${job.title} is ready in Setup.` });
-    onSwitchTab?.("setup");
+    const ok = await markApplied([job.id]);
+    if (ok) {
+      toast({ title: "Sent to Applied", description: `${job.title} is ready in the maker.` });
+      onSwitchTab?.("setup");
+    }
   };
 
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.category === filter);
