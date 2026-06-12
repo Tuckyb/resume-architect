@@ -229,14 +229,8 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
 
-  // Sync credentials to localStorage
-  useEffect(() => {
-    localStorage.setItem("apify_api_token", apiToken);
-  }, [apiToken]);
 
-  useEffect(() => {
-    localStorage.setItem("apify_username", username);
-  }, [username]);
+
 
   // Clean up timeouts on unmount
   useEffect(() => {
