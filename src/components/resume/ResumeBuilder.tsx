@@ -148,10 +148,10 @@ export function ResumeBuilder() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 mb-8">
+          <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-5 mb-8">
             <TabsTrigger value="setup" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              Setup
+              Resume &amp; Cover Letter Maker
             </TabsTrigger>
             <TabsTrigger value="scrapers" className="flex items-center gap-2">
               <Search className="h-4 w-4" />
@@ -160,6 +160,10 @@ export function ResumeBuilder() {
             <TabsTrigger value="jobboard" className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4" />
               Job Board
+            </TabsTrigger>
+            <TabsTrigger value="applied" className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Applied
             </TabsTrigger>
             <TabsTrigger value="preview" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
