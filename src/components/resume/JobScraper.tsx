@@ -180,12 +180,14 @@ const marketingSubclasses = [
 export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScraperProps) {
   const { toast } = useToast();
   
-  // Credentials (persist silently in background per user instructions)
+  // Credentials: localStorage first, then gitignored .env.local defaults
+  // (VITE_APIFY_TOKEN / VITE_APIFY_USERNAME). Never hardcode tokens here —
+  // GitHub push protection blocks them.
   const [apiToken] = useState(() => {
-    return localStorage.getItem("apify_api_token") || "REMOVED_USE_ENV_LOCAL";
+    return localStorage.getItem("apify_api_token") || import.meta.env.VITE_APIFY_TOKEN || "";
   });
   const [username] = useState(() => {
-    return localStorage.getItem("apify_username") || "REMOVED_USE_ENV_LOCAL";
+    return localStorage.getItem("apify_username") || import.meta.env.VITE_APIFY_USERNAME || "";
   });
 
   // Subclassification Selection states matching user screenshot
