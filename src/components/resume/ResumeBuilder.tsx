@@ -17,9 +17,10 @@ import { JobListUploader } from "./JobListUploader";
 import { DocumentPreview } from "./DocumentPreview";
 import { JobScraper } from "./JobScraper";
 import { JobBoard } from "./JobBoard";
+import { AppliedJobs } from "./AppliedJobs";
 
 import { RecentSettings } from "./RecentSettings";
-import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid } from "lucide-react";
+import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ResumeBuilder() {
@@ -34,6 +35,7 @@ export function ResumeBuilder() {
   const { examples: exampleTexts, isLoading: isLoadingExamples } = useDefaultExamples();
   const [portfolioJson, setPortfolioJson] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState<string>("setup");
+  const [appliedRefreshTrigger, setAppliedRefreshTrigger] = useState(0);
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
@@ -146,10 +148,10 @@ export function ResumeBuilder() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4 mb-8">
+          <TabsList className="grid w-full max-w-3xl mx-auto grid-cols-5 mb-8">
             <TabsTrigger value="setup" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
-              Setup
+              Resume &amp; Cover Letter Maker
             </TabsTrigger>
             <TabsTrigger value="scrapers" className="flex items-center gap-2">
               <Search className="h-4 w-4" />
@@ -158,6 +160,10 @@ export function ResumeBuilder() {
             <TabsTrigger value="jobboard" className="flex items-center gap-2">
               <LayoutGrid className="h-4 w-4" />
               Job Board
+            </TabsTrigger>
+            <TabsTrigger value="applied" className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Applied
             </TabsTrigger>
             <TabsTrigger value="preview" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -280,16 +286,25 @@ export function ResumeBuilder() {
           <TabsContent value="jobboard" className="mt-0">
             <div className="max-w-6xl mx-auto">
               <JobBoard
-                onAddToTargets={(newJobs) =>
+                onAddToTargets={(newJobs) => {
                   setJobs((prev) => [
                     ...newJobs.filter((nj) => !prev.some((p) => p.id === nj.id)),
                     ...prev,
-                  ])
-                }
+                  ]);
+                  setAppliedRefreshTrigger((p) => p + 1);
+                }}
                 onSwitchTab={setActiveTab}
               />
             </div>
           </TabsContent>
+
+          {/* Applied Tab */}
+          <TabsContent value="applied" className="mt-0">
+            <div className="max-w-6xl mx-auto">
+              <AppliedJobs refreshTrigger={appliedRefreshTrigger} />
+            </div>
+          </TabsContent>
+
 
           {/* Preview & Download Tab */}
           <TabsContent value="preview" className="mt-0">

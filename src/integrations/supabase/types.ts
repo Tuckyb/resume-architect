@@ -46,6 +46,8 @@ export type Database = {
       }
       job_board: {
         Row: {
+          applied: boolean
+          applied_at: string | null
           category: string
           company: string | null
           created_at: string
@@ -60,6 +62,8 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          applied?: boolean
+          applied_at?: string | null
           category?: string
           company?: string | null
           created_at?: string
@@ -74,6 +78,8 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          applied?: boolean
+          applied_at?: string | null
           category?: string
           company?: string | null
           created_at?: string

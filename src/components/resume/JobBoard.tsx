@@ -49,6 +49,7 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     const { data, error } = await supabase
       .from("job_board")
       .select("*")
+      .eq("applied", false)
       .order("created_at", { ascending: false });
     if (error) {
       toast({ title: "Failed to load job board", description: error.message, variant: "destructive" });
@@ -128,10 +129,31 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     selected: true,
   });
 
-  const handleAddToTargets = (job: JobBoardRow) => {
+  const markApplied = async (ids: string[]) => {
+    const { error } = await supabase
+      .from("job_board")
+      .update({ applied: true, applied_at: new Date().toISOString() })
+      .in("id", ids);
+    if (error) {
+      toast({ title: "Couldn't move to Applied", description: error.message, variant: "destructive" });
+      return false;
+    }
+    setJobs((prev) => prev.filter((j) => !ids.includes(j.id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+    return true;
+  };
+
+  const handleAddToTargets = async (job: JobBoardRow) => {
     onAddToTargets?.([toTarget(job)]);
-    toast({ title: "Added to targets", description: `${job.title} is ready in Setup.` });
-    onSwitchTab?.("setup");
+    const ok = await markApplied([job.id]);
+    if (ok) {
+      toast({ title: "Sent to Applied", description: `${job.title} is ready in the maker.` });
+      onSwitchTab?.("setup");
+    }
   };
 
   const filtered = filter === "all" ? jobs : jobs.filter((j) => j.category === filter);
@@ -159,7 +181,7 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     });
   };
 
-  const handleBulkAdd = () => {
+  const handleBulkAdd = async () => {
     const chosen = filtered.filter((j) => selectedIds.has(j.id));
     if (chosen.length === 0) {
       toast({
@@ -170,12 +192,14 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
       return;
     }
     onAddToTargets?.(chosen.map(toTarget));
-    toast({
-      title: "Added to targets",
-      description: `${chosen.length} job${chosen.length === 1 ? "" : "s"} ready in Setup.`,
-    });
-    setSelectedIds(new Set());
-    onSwitchTab?.("setup");
+    const ok = await markApplied(chosen.map((j) => j.id));
+    if (ok) {
+      toast({
+        title: "Sent to Applied",
+        description: `${chosen.length} job${chosen.length === 1 ? "" : "s"} ready in the maker.`,
+      });
+      onSwitchTab?.("setup");
+    }
   };
 
 
