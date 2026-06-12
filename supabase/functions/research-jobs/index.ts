@@ -118,6 +118,7 @@ async function researchCategory(category: string): Promise<ResearchedJob[]> {
   const jobs = Array.isArray(parsed.jobs) ? parsed.jobs : []
   return jobs
     .filter((j) => j && typeof j.title === 'string' && j.title.trim().length > 0)
+    .filter((j) => isAllowedLocation(j.location ? String(j.location) : ''))
     .map((j) => ({
       title: String(j.title).slice(0, 300),
       company: j.company ? String(j.company).slice(0, 300) : null,
