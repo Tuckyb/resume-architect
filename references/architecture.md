@@ -29,34 +29,34 @@ End-to-end data flow for Resume Architect.
         │ ParsedResumeData
         ▼
 ┌──────────────────────────────────────────────────────┐
-│ useDefaultExamples hook (localStorage cache, v2_)    │
-│  → loads /examples/{example,styled}-{resume,         │
-│    coverletter}.pdf                                  │
+│ useDefaultExamples hook (localStorage cache, v3_)    │
+│  → loads /examples/example-{resume,coverletter}.pdf  │
 │  → runs them through parse-resume-pdf               │
-│  → passes extracted text as style references        │
+│  → passes extracted text as CONTENT/tone references  │
+│    (visual design is deterministic, see below)       │
 └──────────────────────────────────────────────────────┘
         │
-        │ (parsedResume + selectedJobs + style refs)
+        │ (parsedResume + selectedJobs + content refs)
         ▼
 ┌──────────────────────────────────────────────────────┐
 │ Supabase Edge Function: generate-documents          │
-│   Stage 1: generateWithClaude (claude-sonnet-4)      │
-│     → plain text resume / cover letter              │
-│   Stage 2: formatWithClaude (claude-sonnet-4)        │
-│     → HTML wrapped in cssFramework                   │
+│   One Claude call (claude-sonnet-4, forced tool-use) │
+│     → structured content JSON (contentSchemas.ts)    │
+│   Deterministic renderer (_shared/styalized.ts)      │
+│     → validates content, renders Styalized HTML      │
+│     → CSS framework + chrome + referees injected     │
+│       programmatically (never LLM-authored)          │
 │     → [PORTFOLIO: url] → <a> conversion             │
-│     → pre-built referee HTML pasted in              │
 └──────────────────────────────────────────────────────┘
         │
-        │ { type, rawContent, htmlContent }[]
+        │ { type, rawContent: structured JSON, htmlContent }[]
         ▼
 ┌──────────────────────────────────────────────────────┐
 │ DocumentPreview.tsx                                 │
-│   → renders HTML in <ScrollArea> via                │
-│     dangerouslySetInnerHTML                          │
-│   → per-doc download (.doc blob, msword MIME)       │
-│   → print-to-PDF via window.print()                  │
-│   → JSZip of all documents                           │
+│   → sandboxed <iframe srcDoc> preview               │
+│   → Download PDF (hidden-iframe print → Save as PDF)│
+│   → Download HTML (self-contained .html)             │
+│   → JSZip of all documents (.html)                   │
 └──────────────────────────────────────────────────────┘
         │
         │ (auto-save on Generate)
@@ -76,7 +76,7 @@ End-to-end data flow for Resume Architect.
 
 ## Caching
 
-- **Resume text cache** — `localStorage` keys `default_v2_example_resume`, `default_v2_example_coverletter`, `default_v2_styled_resume`, `default_v2_styled_coverletter`. Bump the `v2` prefix to invalidate when the example PDFs change.
+- **Resume text cache** — `localStorage` keys `default_v3_example_resume`, `default_v3_example_coverletter` (content/tone references only). Bump the `v3` prefix to invalidate when the example PDFs change. The styled design PDFs are no longer parsed — the design is rendered deterministically by `supabase/functions/_shared/styalized.ts`.
 - **Apify credentials** — `localStorage` keys `apify_api_token`, `apify_username`.
 - **Supabase session** — `localStorage` (default Supabase auth client behaviour).
 - **Parsed resume** — kept in `ResumeBuilder` state only; not persisted. To replay, hit `RecentSettings` or re-upload the PDF.

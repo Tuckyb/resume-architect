@@ -5,9 +5,3 @@ verify_jwt = false
 
 [functions.parse-resume-pdf]
 verify_jwt = false
-
-[functions.openai-webhook]
-verify_jwt = false
-
-[functions.coverletter-webhook]
-verify_jwt = false

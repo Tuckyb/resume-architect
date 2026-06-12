@@ -23,7 +23,7 @@ The design system produced by the `resume-formatter` and `cover-letter-formatter
 - **Body** — `Inter Tight`: all UI text, role subtitle, section labels, paragraphs
 - **Mono** — `JetBrains Mono`: contact bar, dates, tool tag pills
 
-`<link>` snippet is embedded in `cssFramework` in `../supabase/functions/generate-documents/index.ts`.
+`<link>` snippet and the full `cssFramework` live in `../supabase/functions/_shared/styalized.ts` — the in-repo source of truth mirroring the SKILL, consumed by the deterministic renderer (`renderResume` / `renderCoverLetter`).
 
 ## Component Classes (top-level)
 
@@ -45,7 +45,7 @@ The design system produced by the `resume-formatter` and `cover-letter-formatter
 | `.edu` / `.edu__deg` / `.edu__meta` / `.edu__note` / `.honor` | Education entry |
 | `ul.plain` / `ul.plain li` | Certifications |
 | `.ref` / `.ref__name` / `.ref__role` | Referee |
-| `.note` / `.note p` | Community & Cultural Commitment block |
+| `.note` / `.note p` / `.note--accent` | Community & Cultural Commitment block (accent variant adds the left signal-blue bar, per the approved example) |
 | `.sheet__footer` | Bottom of each sheet (name · role desc / `PAGE 0X OF 02`) |
 | `.letter` / `.letter__meta` / `.letter__recipient` / `.letter__date` | Cover letter meta |
 | `.letter__salutation` / `.letter__body p` / `.letter__closing` | Cover letter body |

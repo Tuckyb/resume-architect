@@ -1,6 +1,11 @@
 # Edge Function: generate-documents
 
-Two-stage Claude pipeline. Stage 1 produces plain text; Stage 2 wraps it in Word-compatible HTML using the Styalized `cssFramework`.
+Single structured-content pipeline. One Claude call per document (forced
+tool-use, schemas in `../supabase/functions/_shared/contentSchemas.ts`)
+returns content JSON; the deterministic renderer in
+`../supabase/functions/_shared/styalized.ts` validates it and assembles the
+final Styalized HTML. The model never authors CSS, layout, identity/contact
+details, dates, or references — those are injected programmatically.
 
 ## Endpoint
 
@@ -13,13 +18,14 @@ interface RequestData {
   parsedResumeData: ParsedResumeData;
   jobTarget: JobTarget;
   documentType: "resume" | "cover-letter" | "both";
-  exampleResumeText?: string | null;
-  exampleCoverLetterText?: string | null;
-  styledResumeText?: string | null;
-  styledCoverLetterText?: string | null;
+  exampleResumeText?: string | null;      // content/tone reference only
+  exampleCoverLetterText?: string | null; // content/tone reference only
   portfolioJson?: Record<string, unknown> | null;
 }
 ```
+
+Legacy `styledResumeText` / `styledCoverLetterText` fields are tolerated but
+ignored — the visual design is no longer inferred from example text.
 
 ## Response
 
@@ -29,23 +35,35 @@ interface RequestData {
   "documents": [
     {
       "type": "resume",
-      "rawContent": "...",
-      "htmlContent": "<!DOCTYPE html>..."
-    },
-    {
-      "type": "cover-letter",
-      "rawContent": "...",
+      "rawContent": "{ ...structured content JSON (debugging aid)... }",
       "htmlContent": "<!DOCTYPE html>..."
     }
   ],
-  "message": "Generated 2 document(s)"
+  "message": "Generated 1 document(s)"
 }
 ```
 
+`htmlContent` is always a complete, self-contained Styalized document:
+resume = exactly two A4 `<section class="sheet">` pages; cover letter = one.
+
+## Error handling
+
+- Missing/truncated tool output → one retry, then 500 with a clear message.
+- Content validation failures (no jobs / profile / paragraphs) → 500.
+- The frontend skips failed jobs and continues the batch.
+
 ## Source
 
-`../supabase/functions/generate-documents/index.ts`
+- `../supabase/functions/generate-documents/index.ts` — orchestration + Claude call
+- `../supabase/functions/_shared/styalized.ts` — CSS framework + renderer + validators
+- `../supabase/functions/_shared/contentSchemas.ts` — tool schemas (prompt-engineering surface)
 
 ## Required Secrets
 
 - `ANTHROPIC_API_KEY`
+
+## Deploy
+
+```bash
+supabase functions deploy generate-documents
+```
