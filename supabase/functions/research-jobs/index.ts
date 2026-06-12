@@ -23,11 +23,24 @@ const PRESETS: Record<string, string> = {
     'current open job roles in the Marketing space (e.g. Marketing Strategist, Growth Marketer, SEO Specialist, Content Marketing, Marketing Automation, Campaign Manager)',
 }
 
-async function researchCategory(category: string, location: string): Promise<ResearchedJob[]> {
+// Only keep roles based in Sydney or Wollongong (or roles explicitly
+// remote-friendly for those NSW cities). Everything else in Australia or
+// overseas is dropped.
+function isAllowedLocation(location: string): boolean {
+  const loc = (location ?? '').toLowerCase()
+  if (!loc.trim()) return false
+  const allowed = ['sydney', 'wollongong', 'illawarra']
+  if (allowed.some((c) => loc.includes(c))) return true
+  // Allow remote roles only if they are remote within Australia / NSW.
+  if (loc.includes('remote') && (loc.includes('australia') || loc.includes('nsw'))) {
+    return true
+  }
+  return false
+}
+
+async function researchCategory(category: string): Promise<ResearchedJob[]> {
   const focus = PRESETS[category] ?? PRESETS.AI
-  const prompt = `Research and list real, currently advertised ${focus}${
-    location ? ` in or remote-friendly for ${location}` : ''
-  }. Find at least 8 distinct roles from reputable job boards and company career pages. Return ONLY a JSON object with a "jobs" array. Each job must have these string fields: title, company, location, description (2-3 sentences), url (direct link to the listing), salary (or empty), posted_date (or empty). Do not invent listings — only include roles you can source.`
+  const prompt = `Research and list real, currently advertised ${focus} located in Sydney, NSW or Wollongong, NSW, Australia (or roles that are explicitly remote-friendly for candidates based in Sydney or Wollongong). Do NOT include roles based anywhere else in Australia or overseas. Find at least 8 distinct roles from reputable Australian job boards (e.g. SEEK, LinkedIn) and company career pages. Return ONLY a JSON object with a "jobs" array. Each job must have these string fields: title, company, location (must clearly state Sydney or Wollongong), description (2-3 sentences), url (direct link to the listing), salary (or empty), posted_date (or empty). Do not invent listings — only include roles you can source.`
 
   const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
