@@ -35,6 +35,7 @@ export function ResumeBuilder() {
   const { examples: exampleTexts, isLoading: isLoadingExamples } = useDefaultExamples();
   const [portfolioJson, setPortfolioJson] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState<string>("setup");
+  const [appliedRefreshTrigger, setAppliedRefreshTrigger] = useState(0);
 
   const selectedJobs = jobs.filter((j) => j.selected);
 
