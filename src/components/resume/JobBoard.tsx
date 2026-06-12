@@ -95,6 +95,29 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
     setJobs((prev) => prev.filter((j) => j.id !== id));
   };
 
+  const handleBulkDelete = async () => {
+    const ids = filtered.filter((j) => selectedIds.has(j.id)).map((j) => j.id);
+    if (ids.length === 0) {
+      toast({
+        title: "No jobs selected",
+        description: "Tick the jobs you want to delete.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const { error } = await supabase.from("job_board").delete().in("id", ids);
+    if (error) {
+      toast({ title: "Delete failed", description: error.message, variant: "destructive" });
+      return;
+    }
+    setJobs((prev) => prev.filter((j) => !ids.includes(j.id)));
+    setSelectedIds(new Set());
+    toast({
+      title: "Deleted",
+      description: `Removed ${ids.length} job${ids.length === 1 ? "" : "s"} from your board.`,
+    });
+  };
+
   const toTarget = (job: JobBoardRow): JobTarget => ({
     id: `board-${job.id}`,
     companyName: job.company ?? "Unknown company",
@@ -208,6 +231,16 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
             <Button size="sm" onClick={handleBulkAdd} disabled={selectedIds.size === 0}>
               <Plus className="mr-1 h-3.5 w-3.5" />
               Use {selectedIds.size > 0 ? selectedIds.size : ""} for resume + cover letter
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleBulkDelete}
+              disabled={selectedIds.size === 0}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1 h-3.5 w-3.5" />
+              Delete {selectedIds.size > 0 ? selectedIds.size : ""}
             </Button>
           </div>
         )}
