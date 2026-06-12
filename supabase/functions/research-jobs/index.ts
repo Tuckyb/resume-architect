@@ -45,7 +45,37 @@ async function researchCategory(category: string, location: string): Promise<Res
         },
         { role: 'user', content: prompt },
       ],
-      response_format: { type: 'json_object' },
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'job_listings',
+          strict: true,
+          schema: {
+            type: 'object',
+            properties: {
+              jobs: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    title: { type: 'string' },
+                    company: { type: 'string' },
+                    location: { type: 'string' },
+                    description: { type: 'string' },
+                    url: { type: 'string' },
+                    salary: { type: 'string' },
+                    posted_date: { type: 'string' },
+                  },
+                  required: ['title', 'company', 'location', 'description', 'url', 'salary', 'posted_date'],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ['jobs'],
+            additionalProperties: false,
+          },
+        },
+      },
     }),
   })
 
