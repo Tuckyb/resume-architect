@@ -41,6 +41,7 @@ export function JobBoard({ onAddToTargets, onSwitchTab }: JobBoardProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isResearching, setIsResearching] = useState(false);
   const [filter, setFilter] = useState<"all" | "AI" | "Marketing">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const loadJobs = useCallback(async () => {
     setIsLoading(true);
