@@ -44,6 +44,57 @@ export type Database = {
         }
         Relationships: []
       }
+      job_board: {
+        Row: {
+          applied: boolean
+          applied_at: string | null
+          category: string
+          company: string | null
+          created_at: string
+          description: string | null
+          id: string
+          location: string | null
+          posted_date: string | null
+          salary: string | null
+          source: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          applied?: boolean
+          applied_at?: string | null
+          category?: string
+          company?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          posted_date?: string | null
+          salary?: string | null
+          source?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          applied?: boolean
+          applied_at?: string | null
+          category?: string
+          company?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          location?: string | null
+          posted_date?: string | null
+          salary?: string | null
+          source?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       recent_settings: {
         Row: {
           created_at: string

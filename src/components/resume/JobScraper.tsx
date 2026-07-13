@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { JobTarget } from "@/types/resume";
 import { 
   Search, 
@@ -27,7 +28,8 @@ import {
   XCircle,
   ChevronDown,
   ChevronUp,
-  HelpCircle
+  HelpCircle,
+  LayoutGrid
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
@@ -180,15 +182,9 @@ const marketingSubclasses = [
 export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScraperProps) {
   const { toast } = useToast();
   
-  // Credentials: localStorage first, then gitignored .env.local defaults
-  // (VITE_APIFY_TOKEN / VITE_APIFY_USERNAME). Never hardcode tokens here —
-  // GitHub push protection blocks them.
-  const [apiToken] = useState(() => {
-    return localStorage.getItem("apify_api_token") || import.meta.env.VITE_APIFY_TOKEN || "";
-  });
-  const [username] = useState(() => {
-    return localStorage.getItem("apify_username") || import.meta.env.VITE_APIFY_USERNAME || "";
-  });
+  // Apify credentials live as a backend secret (APIFY_API_TOKEN) and are used
+  // by the `apify-scrape` edge function. The token is never exposed to the browser.
+
 
   // Subclassification Selection states matching user screenshot
   const [isSubclassOpen, setIsSubclassOpen] = useState(true);
@@ -231,17 +227,12 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   
   // Scraped results
   const [scrapedJobs, setScrapedJobs] = useState<ScrapedJob[]>([]);
+  const [isSavingToBoard, setIsSavingToBoard] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const pollingTimeoutRef = useRef<number | null>(null);
 
-  // Sync credentials to localStorage
-  useEffect(() => {
-    localStorage.setItem("apify_api_token", apiToken);
-  }, [apiToken]);
 
-  useEffect(() => {
-    localStorage.setItem("apify_username", username);
-  }, [username]);
+
 
   // Clean up timeouts on unmount
   useEffect(() => {
@@ -253,14 +244,7 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
   }, []);
 
   const handleStartScrape = async () => {
-    if (!apiToken.trim()) {
-      toast({
-        title: "Missing API Token",
-        description: "Please make sure your Apify API Token is configured.",
-        variant: "destructive",
-      });
-      return;
-    }
+
 
     setIsScraping(true);
     setScrapedJobs([]);
@@ -315,25 +299,21 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     try {
       setScrapeStatus("Starting Apify Actor (websift/seek-job-scraper)...");
       
-      const response = await fetch(
-        `https://api.apify.com/v2/acts/websift~seek-job-scraper/runs?token=${apiToken}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "start", payload } }
       );
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Failed to start run: ${errText || response.statusText}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      const runId = result.data.id;
-      const datasetId = result.data.defaultDatasetId;
+      const runId = response.runId;
+      const datasetId = response.datasetId;
+
       
       setActiveRunId(runId);
       setScrapeStatus("Actor started. Scraping Seek listings...");
@@ -355,16 +335,20 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
   const pollRunStatus = async (runId: string, datasetId: string) => {
     try {
-      const response = await fetch(
-        `https://api.apify.com/v2/actor-runs/${runId}?token=${apiToken}`
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "status", runId } }
       );
-      
-      if (!response.ok) {
-        throw new Error(`Failed to poll status: ${response.statusText}`);
+
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const result = await response.json();
-      const status = result.data.status;
+      const status = response.status;
+
       
       if (status === "SUCCEEDED") {
         setScrapeStatus("Scrape successful! Fetching results...");
@@ -397,19 +381,24 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
   const fetchDatasetItems = async (datasetId: string) => {
     try {
-      const response = await fetch(
-        `https://api.apify.com/v2/datasets/${datasetId}/items?token=${apiToken}`
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "dataset", datasetId } }
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch dataset: ${response.statusText}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+      if (response?.error) {
+        throw new Error(response.error);
       }
 
-      const items = await response.json();
-      
+      const items = response.items;
+
       if (!Array.isArray(items)) {
         throw new Error("Invalid dataset returned from Apify.");
       }
+
 
       const formattedJobs: ScrapedJob[] = (items as ApifyJobItem[]).map((item: ApifyJobItem, index: number) => {
         const jobId = item.id != null ? String(item.id) : `scraped-${Date.now()}-${index}`;
@@ -474,14 +463,15 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
     try {
       setScrapeStatus("Aborting scraper run...");
       
-      const response = await fetch(
-        `https://api.apify.com/v2/actor-runs/${activeRunId}/abort?token=${apiToken}`,
-        { method: "POST" }
+      const { data: response, error: invokeError } = await supabase.functions.invoke(
+        "apify-scrape",
+        { body: { action: "abort", runId: activeRunId } }
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to abort on Apify. Stopping client polling.");
+      if (invokeError || response?.error) {
+        throw new Error(invokeError?.message || response?.error || "Failed to abort run.");
       }
+
 
       toast({
         title: "Scrape Aborted",
@@ -554,6 +544,54 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
     onSwitchTab("setup");
   };
+
+  // Save selected scraped jobs to the persistent Job Board.
+  const handleSaveToBoard = async () => {
+    const selected = scrapedJobs.filter((j) => j.selected);
+
+    if (selected.length === 0) {
+      toast({
+        title: "No Jobs Selected",
+        description: "Please check the box next to at least one job listing to save.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingToBoard(true);
+    try {
+      const rows = selected.map((j) => ({
+        title: j.jobTitle || "Untitled role",
+        company: j.companyName || null,
+        location: j.location || null,
+        category: "Marketing",
+        description: j.jobDescription || j.teaser || null,
+        url: j.jobLink || null,
+        salary: j.salaryLabel || null,
+        posted_date: j.listingDateDisplay || null,
+        source: "seek",
+      }));
+
+      const { error } = await supabase.from("job_board").insert(rows);
+      if (error) throw error;
+
+      toast({
+        title: "Saved to Job Board",
+        description: `Added ${selected.length} job${selected.length === 1 ? "" : "s"} to your Job Board.`,
+      });
+      onSwitchTab("jobboard");
+    } catch (err) {
+      toast({
+        title: "Save failed",
+        description: err instanceof Error ? err.message : "Could not save to Job Board.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingToBoard(false);
+    }
+  };
+
+
 
   // Export to CSV/Excel
   const handleExportCSV = () => {
@@ -702,17 +740,12 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
 
                 <div className="space-y-1.5">
                   <Label htmlFor="location">Location</Label>
-                  <Select 
-                    value={isCustomLocation ? "custom" : location} 
+                  <Select
+                    value={location}
                     onValueChange={(val) => {
-                      if (val === "custom") {
-                        setIsCustomLocation(true);
-                        setLocation("");
-                      } else {
-                        setIsCustomLocation(false);
-                        setLocation(val);
-                      }
-                    }} 
+                      setIsCustomLocation(false);
+                      setLocation(val);
+                    }}
                     disabled={isScraping}
                   >
                     <SelectTrigger id="location" className="w-full">
@@ -728,24 +761,13 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
                       <SelectItem value="Wollongong, Illawarra & South Coast NSW">
                         Wollongong, Illawarra & South Coast
                       </SelectItem>
-                      <SelectItem value="custom">
-                        Custom Location...
-                      </SelectItem>
                     </SelectContent>
                   </Select>
-
-                  {isCustomLocation && (
-                    <div className="relative mt-2 font-normal">
-                      <Input
-                        value={location}
-                        onChange={(e) => setLocation(e.target.value)}
-                        placeholder="Type Seek Location (e.g. Melbourne VIC)"
-                        disabled={isScraping}
-                      />
-                      <MapPin className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Searches are limited to Sydney &amp; Wollongong.
+                  </p>
                 </div>
+
 
                 <div className="space-y-1.5">
                   <Label htmlFor="work-type">Work Type</Label>
@@ -930,6 +952,20 @@ export function JobScraper({ onJobsChange, existingJobs, onSwitchTab }: JobScrap
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download Excel (CSV)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSaveToBoard}
+                disabled={isSavingToBoard}
+                className="flex-1 md:flex-initial"
+              >
+                {isSavingToBoard ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                )}
+                Save to Job Board ({selectedCount})
               </Button>
               <Button 
                 onClick={handleImportSelected}
