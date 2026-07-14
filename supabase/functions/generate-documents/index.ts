@@ -316,7 +316,7 @@ Do NOT include the candidate's name, contact details, references, or today's dat
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-5",
         max_tokens: 4096,
         tools: [tool],
         tool_choice: { type: "tool", name: tool.name },
@@ -374,6 +374,22 @@ Deno.serve(async (req) => {
 
     const personalInfo = normalizePersonalInfo(parsedResumeData);
     const references = normalizeReferences(parsedResumeData);
+
+    // Identity is injected deterministically, never LLM-authored — without a
+    // name the documents render with empty mastheads/contact bars. Fail loudly.
+    if (!personalInfo.fullName) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Resume data is missing personal info (name/contact). Re-upload your resume PDF or JSON in the My Information section, then generate again.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const documents: Array<{ type: string; rawContent: string; htmlContent: string }> = [];
 
     if (documentType === "resume" || documentType === "both") {
@@ -386,7 +402,9 @@ Deno.serve(async (req) => {
         portfolioJson,
       );
       const content: ResumeContent = validateResumeContent(raw);
-      const htmlContent = renderResume(content, personalInfo, references);
+      const htmlContent = renderResume(content, personalInfo, references, {
+        company: jobTarget.companyName,
+      });
 
       documents.push({
         type: "resume",

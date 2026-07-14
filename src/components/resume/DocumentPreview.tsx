@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,14 +12,72 @@ interface DocumentPreviewProps {
   jobs?: JobTarget[];
 }
 
-function docFileName(doc: GeneratedDocument, job?: JobTarget): string {
+function docFileName(doc: GeneratedDocument, job?: JobTarget, ext = "html"): string {
   const company = job?.companyName.replace(/\s+/g, "_") || "document";
-  return `${doc.type}_${company}.html`;
+  return `${doc.type}_${company}.${ext}`;
+}
+
+// Renders a document's HTML in a hidden iframe (real styling + web fonts),
+// captures each A4 .sheet with html2canvas, and assembles the pages into a
+// PDF with jsPDF. Each sheet becomes exactly one page — html2pdf's automatic
+// pagination mis-paginates iframe content, so the sheets are captured
+// individually. Note: pages are rasterized images — pixel-accurate, but the
+// text is not selectable; the per-document Download PDF (print dialog) stays
+// the best option when an ATS needs to parse the text.
+async function renderDocToPdf(doc: GeneratedDocument): Promise<Blob> {
+  // Lazy-loaded: html2canvas + jsPDF add ~1MB, only needed for the ZIP.
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import("html2canvas"),
+    import("jspdf"),
+  ]);
+
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "-9999px";
+  iframe.style.width = "210mm";
+  iframe.style.height = "297mm";
+  iframe.setAttribute("aria-hidden", "true");
+  document.body.appendChild(iframe);
+  try {
+    await new Promise<void>((resolve) => {
+      iframe.onload = () => resolve();
+      iframe.srcdoc = doc.htmlContent;
+    });
+    const frameDoc = iframe.contentDocument;
+    if (!frameDoc) throw new Error("Could not render document for PDF conversion");
+
+    try {
+      await frameDoc.fonts?.ready;
+    } catch {
+      // Fonts unavailable (offline) — capture with fallback fonts.
+    }
+    // Small settle delay so web fonts finish painting before capture.
+    await new Promise((r) => setTimeout(r, 300));
+
+    const sheets = Array.from(frameDoc.querySelectorAll<HTMLElement>(".sheet"));
+    if (sheets.length === 0) throw new Error("No printable sheets found in document");
+
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    for (let i = 0; i < sheets.length; i++) {
+      const canvas = await html2canvas(sheets[i], {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#FAFAF7",
+      });
+      if (i > 0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, 210, 297);
+    }
+    return pdf.output("blob");
+  } finally {
+    iframe.remove();
+  }
 }
 
 export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPreviewProps) {
   // Hidden iframe used for print-to-PDF; reused across clicks.
   const printFrameRef = useRef<HTMLIFrameElement | null>(null);
+  // Progress label while the ZIP's PDFs are being rendered, null when idle.
+  const [zipProgress, setZipProgress] = useState<string | null>(null);
 
   // Opens the browser print dialog on the document rendered at true A4 size.
   // The framework's @page { size: A4; margin: 0 } rules make "Save as PDF"
@@ -67,19 +125,25 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
 
   const downloadAllAsZip = async () => {
     const zip = new JSZip();
+    try {
+      for (let i = 0; i < documents.length; i++) {
+        const doc = documents[i];
+        setZipProgress(`${i + 1}/${documents.length}`);
+        const job = jobs.find((j) => j.id === doc.jobId);
+        const pdf = await renderDocToPdf(doc);
+        zip.file(docFileName(doc, job, "pdf"), pdf);
+      }
 
-    documents.forEach((doc) => {
-      const job = jobs.find((j) => j.id === doc.jobId);
-      zip.file(docFileName(doc, job), doc.htmlContent);
-    });
-
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "all_documents.zip";
-    a.click();
-    URL.revokeObjectURL(url);
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "all_documents.zip";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setZipProgress(null);
+    }
   };
 
   const groupedDocs = documents.reduce((acc, doc) => {
@@ -112,12 +176,22 @@ export function DocumentPreview({ documents, isLoading, jobs = [] }: DocumentPre
   return (
     <Card className="p-4 h-[calc(100vh-200px)] flex flex-col overflow-hidden">
       <div className="flex items-center justify-between mb-4 pb-3 border-b">
-        <span className="text-sm font-medium text-muted-foreground">
-          {documents.length} document{documents.length !== 1 ? 's' : ''} generated
-        </span>
-        <Button variant="default" onClick={downloadAllAsZip}>
-          <PackageCheck className="h-4 w-4 mr-2" />
-          Download All as ZIP
+        <div className="min-w-0">
+          <span className="text-sm font-medium text-muted-foreground block">
+            {documents.length} document{documents.length !== 1 ? 's' : ''} generated
+          </span>
+          <span className="text-xs text-muted-foreground block">
+            The ZIP contains a PDF of every document. For a selectable-text copy of a
+            single document, use its <strong>Download PDF</strong> button (Save as PDF).
+          </span>
+        </div>
+        <Button variant="default" onClick={downloadAllAsZip} disabled={zipProgress !== null}>
+          {zipProgress !== null ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <PackageCheck className="h-4 w-4 mr-2" />
+          )}
+          {zipProgress !== null ? `Preparing PDFs ${zipProgress}…` : "Download All (PDF ZIP)"}
         </Button>
       </div>
       <Tabs defaultValue={jobIds[0]} className="flex flex-col flex-1">

@@ -56,16 +56,25 @@ export function PdfUploader({ onParsed, parsedData, onPortfolioChange, portfolio
         // Accept raw ParsedResumeData JSON directly
         const parsed: ParsedResumeData = {
           rawText: json.rawText ?? JSON.stringify(json),
-          personalInfo: json.personalInfo,
+          personalInfo: json.personalInfo ?? json.personal,
           workExperience: json.workExperience,
           education: json.education,
           skills: json.skills,
           certifications: json.certifications,
-          achievements: json.achievements,
+          achievements: json.achievements ?? json.keyAchievements,
           references: json.references,
         };
         onParsed(parsed);
-        toast({ title: "JSON Loaded", description: "Resume data imported from JSON." });
+        if (!parsed.personalInfo?.fullName && !(parsed.personalInfo as Record<string, unknown> | undefined)?.name) {
+          toast({
+            title: "JSON loaded, but no personal info found",
+            description:
+              "No name/contact details in this JSON — generated documents would be missing your details.",
+            variant: "destructive",
+          });
+        } else {
+          toast({ title: "JSON Loaded", description: "Resume data imported from JSON." });
+        }
       } catch {
         toast({ title: "Invalid JSON", description: "Could not parse the JSON file.", variant: "destructive" });
         setFileName(null);
@@ -80,11 +89,34 @@ export function PdfUploader({ onParsed, parsedData, onPortfolioChange, portfolio
         body: { pdfBase64: base64, fileName: file.name },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       onParsed(data);
-      toast({ title: "PDF Parsed Successfully", description: "Your information has been extracted." });
+      if (!data?.personalInfo?.fullName) {
+        toast({
+          title: "Extraction incomplete",
+          description:
+            data?.warning ||
+            "Name/contact details were not found — generated documents would be missing your personal information. Try re-uploading.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "PDF Parsed Successfully", description: "Your information has been extracted." });
+      }
     } catch (error) {
       console.error("PDF parsing error:", error);
-      toast({ title: "Parsing Failed", description: "Failed to parse the PDF. Please try again.", variant: "destructive" });
+      // FunctionsHttpError carries the response; surface the function's real
+      // error message instead of the generic "non-2xx status code".
+      let message = "Failed to parse the PDF. Please try again.";
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch { /* keep generic message */ }
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+      toast({ title: "Parsing Failed", description: message, variant: "destructive" });
       setFileName(null);
     } finally {
       setIsUploading(false);

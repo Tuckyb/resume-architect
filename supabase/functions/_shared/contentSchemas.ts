@@ -25,7 +25,7 @@ export const resumeContentTool = {
       descriptor: {
         type: "string",
         description:
-          'Short specialty label for the monogram block, max 4 words, e.g. "Marketing & AI Systems".',
+          'Short specialty label for the monogram block, max 4 words, e.g. "Marketing & AI Systems". Must be DIFFERENT from roleTitle — never repeat the headline.',
       },
       capabilities: {
         type: "array",
@@ -115,13 +115,14 @@ export const resumeContentTool = {
       },
       certifications: {
         type: "array",
-        description: "Up to 8 certifications, most job-relevant first.",
+        description:
+          "Up to 8 certifications, most job-relevant first. Formal certifications only — do NOT repeat any course that you list in professionalDevelopment; the two lists must not overlap.",
         items: { type: "string" },
       },
       professionalDevelopment: {
         type: "array",
         description:
-          "Professional development courses (LinkedIn Learning, AI trainings) when listed in the candidate data — include ALL of them, format: \"Course Name (Provider)\". Omit if none.",
+          "Professional development courses (LinkedIn Learning, AI trainings) when listed in the candidate data — include ALL of them, format: \"Course Name (Provider)\". These belong here ONLY — never also in certifications. Omit if none.",
         items: { type: "string" },
       },
       projects: {
@@ -171,7 +172,8 @@ export const coverLetterContentTool = {
       },
       descriptor: {
         type: "string",
-        description: "Short specialty label for the monogram block, max 4 words.",
+        description:
+          "Short specialty label for the monogram block, max 4 words. Must be DIFFERENT from roleTitle — never repeat the headline.",
       },
       recipientDepartment: {
         type: "string",

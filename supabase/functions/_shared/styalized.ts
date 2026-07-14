@@ -412,7 +412,9 @@ ul.plain li:last-child { border-bottom: none; }
 }
 
 /* ---------- Cover letter additions ---------- */
-.letter { margin-top: 8px; }
+/* flex: 1 stretches the letter to fill the A4 sheet so the footer pins to
+   the page bottom instead of hugging the signature block. */
+.letter { margin-top: 8px; flex: 1; }
 .letter__meta {
   display: flex;
   justify-content: space-between;
@@ -628,6 +630,11 @@ function renderMasthead(
   descriptor: string,
 ): string {
   const name = personalInfo.fullName || "";
+  // When the model omits a descriptor it defaults to roleTitle; rendering it
+  // again in the monogram block would duplicate the role text.
+  const desc = descriptor.trim().toLowerCase() === roleTitle.trim().toLowerCase()
+    ? ""
+    : `\n    <span class="desc">${escapeHtml(descriptor)}</span>`;
   return `<div class="masthead">
   <div>
     <h1 class="masthead__name">${escapeHtml(name)}</h1>
@@ -635,8 +642,7 @@ function renderMasthead(
     <div class="masthead__rule"></div>
   </div>
   <div class="masthead__monogram">
-    ${escapeHtml(deriveInitials(name))}
-    <span class="desc">${escapeHtml(descriptor)}</span>
+    ${escapeHtml(deriveInitials(name))}${desc}
   </div>
 </div>`;
 }
@@ -711,8 +717,20 @@ ${bullets}
   </div>`;
 }
 
-function renderFooter(personalInfo: PersonalInfo, roleTitle: string, right: string): string {
-  const left = `${personalInfo.fullName || ""} \u00B7 ${footerDescriptor(roleTitle)}`;
+function renderFooter(
+  personalInfo: PersonalInfo,
+  roleTitle: string,
+  right: string,
+  leftMode: "full" | "name" = "full",
+): string {
+  const name = personalInfo.fullName || "";
+  // "name" mode: the cover letter's signature block already states the role
+  // directly above the footer, so repeating it there reads as duplication.
+  const left = leftMode === "name"
+    ? name
+    : name
+      ? `${name} \u00B7 ${footerDescriptor(roleTitle)}`
+      : footerDescriptor(roleTitle);
   return `<footer class="sheet__footer">
   <span>${escapeHtml(left)}</span>
   <span>${escapeHtml(right)}</span>
@@ -721,6 +739,15 @@ function renderFooter(personalInfo: PersonalInfo, roleTitle: string, right: stri
 
 export interface RenderOptions {
   compact?: boolean;
+  /** Target company name — appended to the document title so the browser's
+   * default Save-as-PDF filename identifies the application. */
+  company?: string;
+}
+
+/** "Commonwealth Bank" -> "_Commonwealth_Bank"; empty/undefined -> "". */
+function companyTitleSuffix(company?: string): string {
+  const trimmed = (company || "").trim();
+  return trimmed ? `_${trimmed.replace(/\s+/g, "_")}` : "";
 }
 
 export function renderResume(
@@ -819,7 +846,7 @@ ${g.bullets.map((b) => `      <li>${renderInline(b)}</li>`).join("\n")}
     : "";
 
   const name = personalInfo.fullName || "Resume";
-  const docTitle = `${name.replace(/\s+/g, "_")}_Resume`;
+  const docTitle = `${name.replace(/\s+/g, "_")}_Resume${companyTitleSuffix(opts?.company)}`;
   const style = opts?.compact ? cssFramework + compactCss : cssFramework;
 
   const html = `<!DOCTYPE html>
@@ -908,7 +935,7 @@ export function renderCoverLetter(
     .join("\n");
 
   const name = personalInfo.fullName || "Cover Letter";
-  const docTitle = `${name.replace(/\s+/g, "_")}_Cover_Letter`;
+  const docTitle = `${name.replace(/\s+/g, "_")}_Cover_Letter${companyTitleSuffix(organisation)}`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -943,7 +970,7 @@ ${paragraphs}
     </div>
   </div>
 
-  ${renderFooter(personalInfo, content.roleTitle, `Cover Letter \u2014 ${organisation}`)}
+  ${renderFooter(personalInfo, content.roleTitle, `Cover Letter \u2014 ${organisation}`, "name")}
 </section>
 
 </body>
@@ -1036,6 +1063,14 @@ export function validateResumeContent(raw: unknown): ResumeContent {
     ? Math.min(Math.max(pageSplitRaw, 1), jobs.length)
     : Math.min(2, jobs.length);
 
+  const professionalDevelopment = asStringArray(r.professionalDevelopment, 10);
+  // The model sometimes lists the same course under both Certifications and
+  // Professional Development; keep it only in Professional Development.
+  const pdKeys = new Set(professionalDevelopment.map((p) => p.trim().toLowerCase()));
+  const certifications = asStringArray(r.certifications, 8).filter(
+    (c) => !pdKeys.has(c.trim().toLowerCase()),
+  );
+
   return {
     roleTitle,
     descriptor: asString(r.descriptor) || roleTitle,
@@ -1045,11 +1080,8 @@ export function validateResumeContent(raw: unknown): ResumeContent {
     jobs,
     pageSplit,
     education,
-    certifications: asStringArray(r.certifications, 8),
-    professionalDevelopment: (() => {
-      const pd = asStringArray(r.professionalDevelopment, 10);
-      return pd.length ? pd : undefined;
-    })(),
+    certifications,
+    professionalDevelopment: professionalDevelopment.length ? professionalDevelopment : undefined,
     projects: projects.length ? projects : undefined,
     communityNote: asString(r.communityNote),
   };

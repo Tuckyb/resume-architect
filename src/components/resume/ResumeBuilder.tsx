@@ -23,6 +23,27 @@ import { RecentSettings } from "./RecentSettings";
 import { Sparkles, AlertCircle, FileText, Settings, Loader2, Search, LayoutGrid, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// FunctionsHttpError carries the edge function's response; surface its real
+// error message instead of the generic "non-2xx status code".
+async function extractFunctionError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: Response }).context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const body = await ctx.json();
+      if (body?.error) return body.error;
+    } catch {
+      // fall through to generic message
+    }
+  }
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function jobSource(jobId: string): string {
+  if (jobId.startsWith("job-scraped-")) return "scraper";
+  if (jobId.startsWith("manual-")) return "manual";
+  return "csv";
+}
+
 export function ResumeBuilder() {
   const { toast } = useToast();
   const [parsedResume, setParsedResume] = useState<ParsedResumeData | null>(null);
@@ -38,6 +59,42 @@ export function ResumeBuilder() {
   const [appliedRefreshTrigger, setAppliedRefreshTrigger] = useState(0);
 
   const selectedJobs = jobs.filter((j) => j.selected);
+
+  // After generation succeeds, record each job in job_board as applied so it
+  // shows in the Applied tab. Board-sourced jobs (id "board-<uuid>") already
+  // have a row — just (re)flag it; scraper/CSV/manual jobs get a new row.
+  const markJobsApplied = async (succeeded: JobTarget[]) => {
+    const appliedAt = new Date().toISOString();
+    const boardIds = succeeded
+      .filter((j) => j.id.startsWith("board-"))
+      .map((j) => j.id.slice("board-".length));
+    const newRows = succeeded
+      .filter((j) => !j.id.startsWith("board-"))
+      .map((j) => ({
+        title: j.position,
+        company: j.companyName || null,
+        location: j.location || null,
+        url: j.companyUrl || null,
+        description: j.jobDescription ? j.jobDescription.slice(0, 2000) : null,
+        category: "Marketing",
+        source: jobSource(j.id),
+        applied: true,
+        applied_at: appliedAt,
+      }));
+
+    if (boardIds.length > 0) {
+      const { error } = await supabase
+        .from("job_board")
+        .update({ applied: true, applied_at: appliedAt })
+        .in("id", boardIds);
+      if (error) console.error("Failed to flag board jobs as applied:", error);
+    }
+    if (newRows.length > 0) {
+      const { error } = await supabase.from("job_board").insert(newRows);
+      if (error) console.error("Failed to record applied jobs:", error);
+    }
+    setAppliedRefreshTrigger((p) => p + 1);
+  };
 
   const handleGenerate = async () => {
     if (!parsedResume?.rawText) {
@@ -63,6 +120,8 @@ export function ResumeBuilder() {
     setCurrentJobIndex(0);
 
     const allDocs: GeneratedDocument[] = [];
+    const succeededJobs: JobTarget[] = [];
+    const errors: string[] = [];
 
     try {
       for (let i = 0; i < selectedJobs.length; i++) {
@@ -81,7 +140,9 @@ export function ResumeBuilder() {
         });
 
         if (error) {
-          console.error(`Error generating for ${job.companyName}:`, error);
+          const message = await extractFunctionError(error);
+          console.error(`Error generating for ${job.companyName}:`, message);
+          errors.push(`${job.companyName}: ${message}`);
           continue;
         }
 
@@ -91,8 +152,14 @@ export function ResumeBuilder() {
             jobId: job.id,
           }));
           allDocs.push(...docsWithJobId);
+          succeededJobs.push(job);
           setGeneratedDocs([...allDocs]);
         }
+      }
+
+      // Record successful applications so they appear in the Applied tab.
+      if (succeededJobs.length > 0) {
+        await markJobsApplied(succeededJobs);
       }
 
       // Save settings to recent_settings after successful generation
@@ -115,13 +182,23 @@ export function ResumeBuilder() {
           setSettingsRefreshTrigger(prev => prev + 1);
         }
       }
-      toast({
-        title: "Generation Complete!",
-        description: `Generated documents for ${allDocs.length > 0 ? selectedJobs.length : 0} job(s).`,
-      });
-      
-      // Switch to preview tab after successful generation
-      setActiveTab("preview");
+      if (errors.length > 0) {
+        toast({
+          title: allDocs.length > 0 ? "Generation partially complete" : "Generation Failed",
+          description: `${succeededJobs.length} of ${selectedJobs.length} job(s) succeeded. ${errors[0]}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Generation Complete!",
+          description: `Generated ${allDocs.length} document(s) for ${succeededJobs.length} job(s).`,
+        });
+      }
+
+      // Switch to preview tab only when there is something to preview
+      if (allDocs.length > 0) {
+        setActiveTab("preview");
+      }
     } catch (error) {
       console.error("Generation error:", error);
       toast({

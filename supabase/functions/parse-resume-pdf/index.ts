@@ -148,7 +148,7 @@ IMPORTANT:
             ],
           },
         ],
-        max_tokens: 4000,
+        max_tokens: 16000,
         temperature: 0.1,
       }),
     });
@@ -173,22 +173,37 @@ IMPORTANT:
     let parsedData: ParsedResumeData;
     try {
       // Try to extract JSON from the response (it might have markdown code blocks)
-      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) ||
                        content.match(/```\s*([\s\S]*?)\s*```/) ||
                        [null, content];
       const jsonString = jsonMatch[1] || content;
       parsedData = JSON.parse(jsonString.trim());
     } catch (parseError) {
+      // A silent fallback here used to hand back rawText-only data, which the
+      // UI reported as success and generate-documents rendered as nameless
+      // documents. Fail loudly instead so the user re-uploads.
       console.error("JSON parse error:", parseError);
-      // Return raw text if parsing fails
-      parsedData = {
-        rawText: content,
-      };
+      return new Response(
+        JSON.stringify({
+          error:
+            "The AI response could not be parsed into structured resume data. Please try uploading the PDF again.",
+        }),
+        {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const responseBody: ParsedResumeData & { warning?: string } = parsedData;
+    if (!parsedData.personalInfo?.fullName) {
+      responseBody.warning =
+        "No name/contact details were found in the PDF — generated documents would be missing your personal information.";
     }
 
     console.log("Successfully parsed resume data");
 
-    return new Response(JSON.stringify(parsedData), {
+    return new Response(JSON.stringify(responseBody), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
